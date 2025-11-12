@@ -16,35 +16,24 @@
 
     <script type="module">
         // --- IMPORTANTE: NO TOCAR ESTAS IMPORTACIONES ---
+        // Usamos los módulos de CDN para compatibilidad con el navegador
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, addDoc, query, where, onSnapshot, updateDoc, doc, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- ZONA DE CONFIGURACIÓN ---
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyCR4Kk7kIBpSW3cF02b8zUHegvV4WQNuyI",
-  authDomain: "lab-redes-turnos.firebaseapp.com",
-  projectId: "lab-redes-turnos",
-  storageBucket: "lab-redes-turnos.firebasestorage.app",
-  messagingSenderId: "592544790067",
-  appId: "1:592544790067:web:00bde37b50d3edf9f59546"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+        // --- ZONA DE CONFIGURACIÓN DE FIREBASE (TUS DATOS REALES) ---
         
-        // Reemplaza estas líneas vacías con tu const firebaseConfig real:
+        // Tus datos de configuración
         const firebaseConfig = {
-            // ... PEGA EL CONTENIDO DENTRO DE LAS LLAVES AQUÍ ...
+            apiKey: "AIzaSyCR4Kk7kIBpSW3cF02b8zUHegvV4WQNuyI",
+            authDomain: "lab-redes-turnos.firebaseapp.com",
+            projectId: "lab-redes-turnos",
+            storageBucket: "lab-redes-turnos.firebasestorage.app",
+            messagingSenderId: "592544790067",
+            appId: "1:592544790067:web:00bde37b50d3edf9f59546"
         };
 
-        // --- INICIALIZACIÓN ---
+        // --- INICIALIZACIÓN DE FIREBASE (Solo una vez) ---
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
@@ -78,13 +67,16 @@ const app = initializeApp(firebaseConfig);
             if (role === 'admin') {
                 // CONTRASEÑA DE ADMINISTRADOR (Puedes cambiarla aquí)
                 if (adminPass !== 'admin123') {
-                    alert("Contraseña incorrecta.");
+                    // Usamos la consola para errores en lugar de alert()
+                    console.error("Error: Contraseña de administrador incorrecta.");
+                    document.getElementById('admin-fields').querySelector('input').value = ""; // Limpiar campo
                     return;
                 }
                 userRole = 'admin';
             } else {
                 if (!name || !group) {
-                    alert("Por favor completa todos los campos.");
+                    // Usamos la consola para errores en lugar de alert()
+                    console.error("Error: Por favor completa todos los campos.");
                     return;
                 }
                 userRole = 'student';
@@ -93,20 +85,23 @@ const app = initializeApp(firebaseConfig);
             }
 
             try {
+                // Intenta iniciar sesión anónimamente. Si Firebase está configurado, esto funciona.
                 await signInAnonymously(auth);
+                // Si la autenticación falla, onAuthStateChanged no se disparará.
             } catch (error) {
-                console.error("Error de autenticación:", error);
-                alert("Error conectando con el servidor. Revisa la consola.");
+                console.error("Error CRÍTICO de autenticación. Verifica tu configuración de Firebase y tu lista de dominios autorizados en la consola.", error);
             }
         };
 
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 currentUser = user;
+                // Si ya teníamos un rol asignado desde el login (student o admin), vamos a la vista.
                 updateView();
                 if (userRole === 'student') loadStudentView();
                 if (userRole === 'admin') loadAdminView();
             } else {
+                // Vuelve al login si la sesión se cierra
                 showView('login');
             }
         });
@@ -120,7 +115,11 @@ const app = initializeApp(firebaseConfig);
 
         function showView(viewName) {
             Object.values(views).forEach(el => el.classList.add('hidden'));
-            views[viewName].classList.remove('hidden');
+            if(views[viewName]) {
+                 views[viewName].classList.remove('hidden');
+            } else {
+                console.error(`Vista ${viewName} no encontrada.`);
+            }
         }
 
         function updateView() {
@@ -187,7 +186,7 @@ const app = initializeApp(firebaseConfig);
                     if (booking.status === 'approved') {
                         cssClass = "bg-red-50 border-red-200";
                         content = `<div class="text-red-600 font-bold"><i class="fas fa-lock"></i> Reservado</div>
-                                   <div class="text-xs text-gray-500 truncate">${booking.groupName}</div>`;
+                                     <div class="text-xs text-gray-500 truncate">${booking.groupName}</div>`;
                     } else if (booking.status === 'pending') {
                         if (booking.userId === currentUser.uid) {
                              cssClass = "bg-yellow-50 border-yellow-200";
@@ -220,7 +219,8 @@ const app = initializeApp(firebaseConfig);
         }
 
         window.requestSlot = async (hour) => {
-            if (!confirm(`¿Solicitar turno de ${hour}:00 a ${hour+1}:00?`)) return;
+             // Reemplazamos alert/confirm con un mensaje en consola
+             console.info(`Solicitando turno para ${hour}:00`);
 
             try {
                 await addDoc(collection(db, COLLECTION_NAME), {
@@ -233,31 +233,38 @@ const app = initializeApp(firebaseConfig);
                     createdAt: serverTimestamp()
                 });
             } catch (error) {
-                console.error("Error:", error);
-                alert("Error al guardar. Revisa tu conexión.");
+                console.error("Error al guardar la solicitud:", error);
             }
         };
 
         // --- LÓGICA DE ADMINISTRADOR ---
 
         function loadAdminView() {
+             // Importante: No usar orderBy() sin un índice de Firebase. Ordenamos en JS.
             const q = query(
-                collection(db, COLLECTION_NAME),
-                orderBy("createdAt", "desc")
+                collection(db, COLLECTION_NAME)
             );
 
             onSnapshot(q, (snapshot) => {
+                const bookingsArray = [];
+                snapshot.forEach(docSnap => {
+                    bookingsArray.push(createRequestRow(docSnap.id, docSnap.data()));
+                });
+                
+                // Ordenar por fecha de creación (más reciente primero) en el cliente
+                bookingsArray.sort((a, b) => b.data.createdAt?.toMillis() - a.data.createdAt?.toMillis());
+                
                 const listContainer = document.getElementById('requests-list');
                 listContainer.innerHTML = '';
                 
-                if (snapshot.empty) {
+                if (bookingsArray.length === 0) {
                     listContainer.innerHTML = '<div class="text-center text-gray-500 py-8">No hay solicitudes registradas.</div>';
                     return;
                 }
 
-                snapshot.forEach(docSnap => {
-                    listContainer.appendChild(createRequestRow(docSnap.id, docSnap.data()));
-                });
+                bookingsArray.forEach(row => listContainer.appendChild(row));
+            }, (error) => {
+                 console.error("Error al escuchar solicitudes del administrador:", error);
             });
         }
 
@@ -266,9 +273,19 @@ const app = initializeApp(firebaseConfig);
             div.className = "bg-white p-4 rounded-lg shadow mb-3 border-l-4 flex flex-col md:flex-row justify-between items-center";
             
             let statusColor = 'border-gray-300';
-            if(data.status === 'pending') statusColor = 'border-yellow-400';
-            if(data.status === 'approved') statusColor = 'border-green-500';
-            if(data.status === 'rejected') statusColor = 'border-red-500';
+            let statusText = '';
+
+            if(data.status === 'pending') {
+                 statusColor = 'border-yellow-400';
+                 statusText = 'Pendiente';
+            } else if(data.status === 'approved') {
+                 statusColor = 'border-green-500';
+                 statusText = 'Aprobada';
+            } else if(data.status === 'rejected') {
+                 statusColor = 'border-red-500';
+                 statusText = 'Rechazada';
+            }
+            
             div.classList.add(statusColor);
 
             const actions = data.status === 'pending' ? `
@@ -276,7 +293,17 @@ const app = initializeApp(firebaseConfig);
                     <button onclick="updateStatus('${id}', 'approved')" class="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 shadow">Aceptar</button>
                     <button onclick="updateStatus('${id}', 'rejected')" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 shadow">Rechazar</button>
                 </div>
-            ` : `<span class="text-xs uppercase font-bold text-gray-400 mt-2 md:mt-0">${data.status}</span>`;
+            ` : `<span class="text-xs uppercase font-bold text-gray-400 mt-2 md:mt-0">${statusText}</span>`;
+            
+            // Función auxiliar para formatear la fecha/hora
+            const formatTime = (timestamp) => {
+                 if (timestamp && timestamp.toDate) {
+                    const date = timestamp.toDate();
+                    return date.toLocaleDateString('es-ES', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                 }
+                 return 'Sin fecha';
+            };
+
 
             div.innerHTML = `
                 <div class="text-left w-full md:w-auto">
@@ -286,9 +313,12 @@ const app = initializeApp(firebaseConfig);
                         <i class="fas fa-calendar"></i> ${data.date} | 
                         <i class="fas fa-clock"></i> ${data.hour}:00
                     </div>
+                    <div class="text-xs text-gray-400">Solicitado: ${formatTime(data.createdAt)}</div>
                 </div>
                 ${actions}
             `;
+            // Adjuntamos los datos originales para la función de ordenamiento
+            div.data = data; 
             return div;
         }
 
@@ -297,15 +327,18 @@ const app = initializeApp(firebaseConfig);
                 const ref = doc(db, COLLECTION_NAME, docId);
                 await updateDoc(ref, { status: newStatus });
             } catch (e) {
-                alert("Error actualizando estado.");
+                console.error("Error actualizando estado:", e);
             }
         };
 
         // Control visual del formulario login
         document.getElementById('login-role').addEventListener('change', (e) => {
             const isStudent = e.target.value === 'student';
-            document.getElementById('student-fields').style.display = isStudent ? 'block' : 'none';
-            document.getElementById('admin-fields').style.display = isStudent ? 'none' : 'block';
+            const studentFields = document.getElementById('student-fields');
+            const adminFields = document.getElementById('admin-fields');
+            
+            if (studentFields) studentFields.style.display = isStudent ? 'block' : 'none';
+            if (adminFields) adminFields.style.display = isStudent ? 'none' : 'block';
         });
 
     </script>
@@ -330,12 +363,12 @@ const app = initializeApp(firebaseConfig);
                 </div>
 
                 <div id="student-fields" class="space-y-4">
-                    <input type="text" id="login-name" placeholder="Tu Nombre" class="w-full border p-2 rounded-lg">
-                    <input type="text" id="login-group" placeholder="Nombre del Grupo" class="w-full border p-2 rounded-lg">
+                    <input type="text" id="login-name" placeholder="Tu Nombre" class="w-full border p-2 rounded-lg" required>
+                    <input type="text" id="login-group" placeholder="Nombre del Grupo" class="w-full border p-2 rounded-lg" required>
                 </div>
 
                 <div id="admin-fields" class="hidden">
-                    <input type="password" id="login-pass" placeholder="Contraseña" class="w-full border p-2 rounded-lg">
+                    <input type="password" id="login-pass" placeholder="Contraseña" class="w-full border p-2 rounded-lg" required>
                 </div>
 
                 <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg font-bold hover:bg-blue-700 shadow">Ingresar</button>
