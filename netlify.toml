@@ -1,9 +1,3 @@
 [build]
-
-Configuración para forzar a Netlify a no ejecutar comandos de compilación
-
-command = "echo 'No build required'"
-
-Directorio donde Netlify buscará los archivos a publicar (publicamos desde la raíz)
-
+command = "echo 'static site'"
 publish = "."
