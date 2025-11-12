@@ -16,21 +16,26 @@ title: Download
 {%- capture arm_64 -%}
 {%translate ARM 64-bit%}
 {%- endcapture -%}
+{%- capture riscv_64 -%}
+{%translate RISC-V 64-bit%}
+{%- endcapture -%}
 {%- capture all_archs -%}
 {%translate all architectures,All-in-one architectures for STK installer / packages%}
 {%- endcapture -%}
 
 {%- capture linux_link -%}
-https://github.com/supertuxkart/stk-code/releases/download/{{ site.stk_version }}/SuperTuxKart-{{ site.stk_version }}-linux-x86_64.tar.xz
+https://github.com/supertuxkart/stk-code/releases/download/{{ site.stk_version }}/SuperTuxKart-{{ site.stk_version }}-linux-x86_64.tar.gz
 {%- endcapture -%}
 {%- capture linux_content -%}
-[**{{ full_game }}** (.tar.xz) {{ x86_32 }}](https://github.com/supertuxkart/stk-code/releases/download/{{ site.stk_version }}/SuperTuxKart-{{ site.stk_version }}-linux-x86.tar.xz)
+[**{{ full_game }}** (.tar.gz) {{ x86_32 }}](https://github.com/supertuxkart/stk-code/releases/download/{{ site.stk_version }}/SuperTuxKart-{{ site.stk_version }}-linux-x86.tar.gz)
 
-[**{{ full_game }}** (.tar.xz) {{ x86_64 }}](https://github.com/supertuxkart/stk-code/releases/download/{{ site.stk_version }}/SuperTuxKart-{{ site.stk_version }}-linux-x86_64.tar.xz)
+[**{{ full_game }}** (.tar.gz) {{ x86_64 }}](https://github.com/supertuxkart/stk-code/releases/download/{{ site.stk_version }}/SuperTuxKart-{{ site.stk_version }}-linux-x86_64.tar.gz)
 
-[**{{ full_game }}** (.tar.xz) {{ arm_32 }}](https://github.com/supertuxkart/stk-code/releases/download/{{ site.stk_version }}/SuperTuxKart-{{ site.stk_version }}-linux-armv7.tar.xz)
+[**{{ full_game }}** (.tar.gz) {{ arm_32 }}](https://github.com/supertuxkart/stk-code/releases/download/{{ site.stk_version }}/SuperTuxKart-{{ site.stk_version }}-linux-armv7.tar.gz)
 
-[**{{ full_game }}** (.tar.xz) {{ arm_64 }}](https://github.com/supertuxkart/stk-code/releases/download/{{ site.stk_version }}/SuperTuxKart-{{ site.stk_version }}-linux-arm64.tar.xz)
+[**{{ full_game }}** (.tar.gz) {{ arm_64 }}](https://github.com/supertuxkart/stk-code/releases/download/{{ site.stk_version }}/SuperTuxKart-{{ site.stk_version }}-linux-arm64.tar.gz)
+
+[**{{ full_game }}** (.tar.gz) {{ riscv_64 }}](https://github.com/supertuxkart/stk-code/releases/download/{{ site.stk_version }}/SuperTuxKart-{{ site.stk_version }}-linux-riscv64.tar.gz)
 
 {%translate Extract and run **run_game.sh** inside the folder.%}
 {%- endcapture -%}
@@ -49,10 +54,10 @@ https://github.com/supertuxkart/stk-code/releases/download/{{ site.stk_version }
 {%- endcapture -%}
 
 {%- capture apple_link -%}
-https://github.com/supertuxkart/stk-code/releases/download/{{ site.stk_version }}/SuperTuxKart-{{ site.stk_version }}-mac.zip
+https://github.com/supertuxkart/stk-code/releases/download/{{ site.stk_version }}/SuperTuxKart-{{ site.stk_version }}-mac-signed.zip
 {%- endcapture -%}
 {%- capture apple_content -%}
-[**{{ full_game }}** (.zip) {{ all_archs }}](https://github.com/supertuxkart/stk-code/releases/download/{{ site.stk_version }}/SuperTuxKart-{{ site.stk_version }}-mac.zip)
+[**{{ full_game }}** (.zip) {{ all_archs }}](https://github.com/supertuxkart/stk-code/releases/download/{{ site.stk_version }}/SuperTuxKart-{{ site.stk_version }}-mac-signed.zip)
 {%- endcapture -%}
 
 {%- capture android_link -%}
@@ -77,13 +82,22 @@ https://github.com/supertuxkart/stk-code/releases/download/{{ site.stk_version }
 {%translate Source Code%}
 {%- endcapture -%}
 {%- capture source_link -%}
-https://github.com/supertuxkart/stk-code/releases/download/{{ site.stk_version }}/SuperTuxKart-{{ site.stk_version }}-src.tar.xz
+https://github.com/supertuxkart/stk-code/releases/download/{{ site.stk_version }}/SuperTuxKart-{{ site.stk_version }}-src.tar.gz
 {%- endcapture -%}
 {%- capture source_content -%}
-[**{{ full_game }}** (.tar.xz)](https://github.com/supertuxkart/stk-code/releases/download/{{ site.stk_version }}/SuperTuxKart-{{ site.stk_version }}-src.tar.xz)
+[**{{ full_game }}** (.tar.gz)](https://github.com/supertuxkart/stk-code/releases/download/{{ site.stk_version }}/SuperTuxKart-{{ site.stk_version }}-src.tar.gz)
 
 {%translate "To get the very latest code, see the page [Source control](Source_control)."%}
 {%- endcapture -%}
+
+{%- capture recommended_title -%}
+..:: {%translate Recommended Installation%} ::..
+{%- endcapture -%}
+{%- main_title {{ recommended_title }}-%}
+
+<div id="recommended-download-placeholder">
+<span class="translate">{%translate Loading your recommended download...%}</span>
+</div>
 
 {%- capture github_title -%}
 ..:: {%translate Download from GitHub%} ::..
@@ -109,25 +123,24 @@ os="switch" name="Switch Homebrew" content=switch_content
 os="source" name=source_code content=source_content
 -%}
 
-{%translate Preview release is available [here](https://github.com/supertuxkart/stk-code/releases/preview).%}
+{%- capture itch_title -%}
+..:: {%translate Download from Itch.io%} ::..
+{%- endcapture -%}
+{%- main_title {{ itch_title }}-%}
 
-{% capture rc_string -%}
-{%translate_sentence Get the latest release candidate:%}
-{%- endcapture %}
+{%translate You can also download SuperTuxKart using itch.io. %}
 
-{%- if site.stk_rc != '' -%}
-{{ rc_string }}[{{ site.stk_rc }}](https://github.com/supertuxkart/stk-code/releases/{{ site.stk_rc }})
-{%- endif -%}
+{%translate A gift package with two tracks is also available for donators. See the [Donation page](Donate) for more details. %}
 
-{% capture itch_title -%}
-..:: {%translate Get SuperTuxKart on Itch.io%} ::..
-{%- endcapture %}
-{% main_title {{ itch_title }}%}
-<div class="download-content" style="font-size: 1rem; opacity: 1.0;">
-<div class="download-left" style="text-align: center;">
-{%- include donation_frame -%}
-</div>
-<div class="download-right">
-<i class="fa fa-download fa-fw fa-2x"></i>
-</div>
-</div>
+{% include donation_frame %}
+
+{%- capture other_title -%}
+..:: {%translate Other downloads%} ::..
+{%- endcapture -%}
+{%- main_title {{ other_title }}-%}
+
+{%translate "The main download links provided above are for the last stable release, SuperTuxKart 1.5."%}
+
+{%translate The automated preview release builds are available [here](https://github.com/supertuxkart/stk-code/releases/preview). %}
+
+{%translate Public testing builds for SuperTuxKart Evolution are not yet available. %}
