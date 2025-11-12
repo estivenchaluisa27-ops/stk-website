@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Reservas - Laboratorio de Redes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+
+    <script type="module">
+        // --- IMPORTANTE: NO TOCAR ESTAS IMPORTACIONES ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, where, onSnapshot, updateDoc, doc, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- ZONA DE CONFIGURACIÓN ---
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyCR4Kk7kIBpSW3cF02b8zUHegvV4WQNuyI",
+  authDomain: "lab-redes-turnos.firebaseapp.com",
+  projectId: "lab-redes-turnos",
+  storageBucket: "lab-redes-turnos.firebasestorage.app",
+  messagingSenderId: "592544790067",
+  appId: "1:592544790067:web:00bde37b50d3edf9f59546"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+        
+        // Reemplaza estas líneas vacías con tu const firebaseConfig real:
+        const firebaseConfig = {
+            // ... PEGA EL CONTENIDO DENTRO DE LAS LLAVES AQUÍ ...
+        };
+
+        // --- INICIALIZACIÓN ---
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Nombre de la colección en la base de datos
+        const COLLECTION_NAME = "bookings"; 
+
+        // Estado de la aplicación
+        let currentUser = null;
+        let userRole = 'student'; 
+        let currentGroup = '';
+        let currentRepName = '';
+        let selectedDate = new Date().toISOString().split('T')[0]; 
+
+        // Referencias al DOM
+        const views = {
+            login: document.getElementById('login-view'),
+            student: document.getElementById('student-dashboard'),
+            admin: document.getElementById('admin-dashboard')
+        };
+
+        // --- LÓGICA DE AUTENTICACIÓN ---
+
+        window.handleLogin = async (e) => {
+            e.preventDefault();
+            const role = document.getElementById('login-role').value;
+            const name = document.getElementById('login-name').value;
+            const group = document.getElementById('login-group').value;
+            const adminPass = document.getElementById('login-pass').value;
+
+            if (role === 'admin') {
+                // CONTRASEÑA DE ADMINISTRADOR (Puedes cambiarla aquí)
+                if (adminPass !== 'admin123') {
+                    alert("Contraseña incorrecta.");
+                    return;
+                }
+                userRole = 'admin';
+            } else {
+                if (!name || !group) {
+                    alert("Por favor completa todos los campos.");
+                    return;
+                }
+                userRole = 'student';
+                currentRepName = name;
+                currentGroup = group;
+            }
+
+            try {
+                await signInAnonymously(auth);
+            } catch (error) {
+                console.error("Error de autenticación:", error);
+                alert("Error conectando con el servidor. Revisa la consola.");
+            }
+        };
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                updateView();
+                if (userRole === 'student') loadStudentView();
+                if (userRole === 'admin') loadAdminView();
+            } else {
+                showView('login');
+            }
+        });
+
+        window.handleLogout = () => {
+            signOut(auth);
+            window.location.reload();
+        };
+
+        // --- VISTAS ---
+
+        function showView(viewName) {
+            Object.values(views).forEach(el => el.classList.add('hidden'));
+            views[viewName].classList.remove('hidden');
+        }
+
+        function updateView() {
+            if (userRole === 'admin') {
+                showView('admin');
+                document.getElementById('admin-name-display').innerText = "Administrador";
+            } else {
+                showView('student');
+                document.getElementById('student-name-display').innerText = `${currentRepName} (${currentGroup})`;
+            }
+        }
+
+        // --- LÓGICA DE ESTUDIANTE ---
+
+        function loadStudentView() {
+            const datePicker = document.getElementById('student-date');
+            datePicker.value = selectedDate;
+            datePicker.min = new Date().toISOString().split('T')[0];
+            
+            datePicker.addEventListener('change', (e) => {
+                selectedDate = e.target.value;
+                listenToSlots();
+            });
+
+            listenToSlots();
+        }
+
+        function listenToSlots() {
+            const slotsContainer = document.getElementById('slots-container');
+            slotsContainer.innerHTML = '<div class="col-span-full text-center text-gray-500">Cargando horarios...</div>';
+
+            const hours = [13, 14, 15, 16, 17, 18, 19, 20];
+            
+            // Consulta a la base de datos
+            const q = query(
+                collection(db, COLLECTION_NAME),
+                where("date", "==", selectedDate)
+            );
+
+            onSnapshot(q, (snapshot) => {
+                const bookings = {};
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    bookings[data.hour] = { ...data, id: doc.id };
+                });
+                renderSlots(hours, bookings);
+            });
+        }
+
+        function renderSlots(hours, bookings) {
+            const container = document.getElementById('slots-container');
+            container.innerHTML = '';
+
+            hours.forEach(hour => {
+                const booking = bookings[hour];
+                const timeLabel = `${hour}:00 - ${hour + 1}:00`;
+                const card = document.createElement('div');
+                
+                let content = "";
+                let action = "";
+                let cssClass = "bg-white border-gray-200";
+
+                if (booking) {
+                    if (booking.status === 'approved') {
+                        cssClass = "bg-red-50 border-red-200";
+                        content = `<div class="text-red-600 font-bold"><i class="fas fa-lock"></i> Reservado</div>
+                                   <div class="text-xs text-gray-500 truncate">${booking.groupName}</div>`;
+                    } else if (booking.status === 'pending') {
+                        if (booking.userId === currentUser.uid) {
+                             cssClass = "bg-yellow-50 border-yellow-200";
+                             content = `<div class="text-yellow-600 font-bold">Tu Solicitud</div><div class="text-xs">Pendiente de aprobación</div>`;
+                        } else {
+                             cssClass = "bg-gray-100 border-gray-200 opacity-75";
+                             content = `<div class="text-gray-500 font-bold">En espera...</div>`;
+                        }
+                    } else if (booking.status === 'rejected') {
+                        content = `<div class="text-green-600 font-bold">Disponible</div>`;
+                        action = createRequestButton(hour);
+                    }
+                } else {
+                    content = `<div class="text-green-600 font-bold">Disponible</div>`;
+                    action = createRequestButton(hour);
+                }
+
+                card.className = `p-4 rounded-lg border-2 shadow-sm flex flex-col justify-between items-center text-center transition hover:shadow-md ${cssClass}`;
+                card.innerHTML = `
+                    <div class="text-lg font-semibold text-gray-700 mb-2">${timeLabel}</div>
+                    ${content}
+                    ${action}
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function createRequestButton(hour) {
+            return `<button onclick="requestSlot(${hour})" class="mt-2 w-full bg-blue-600 text-white text-sm py-1.5 rounded hover:bg-blue-700 transition">Solicitar</button>`;
+        }
+
+        window.requestSlot = async (hour) => {
+            if (!confirm(`¿Solicitar turno de ${hour}:00 a ${hour+1}:00?`)) return;
+
+            try {
+                await addDoc(collection(db, COLLECTION_NAME), {
+                    date: selectedDate,
+                    hour: hour,
+                    groupName: currentGroup,
+                    repName: currentRepName,
+                    userId: currentUser.uid,
+                    status: 'pending',
+                    createdAt: serverTimestamp()
+                });
+            } catch (error) {
+                console.error("Error:", error);
+                alert("Error al guardar. Revisa tu conexión.");
+            }
+        };
+
+        // --- LÓGICA DE ADMINISTRADOR ---
+
+        function loadAdminView() {
+            const q = query(
+                collection(db, COLLECTION_NAME),
+                orderBy("createdAt", "desc")
+            );
+
+            onSnapshot(q, (snapshot) => {
+                const listContainer = document.getElementById('requests-list');
+                listContainer.innerHTML = '';
+                
+                if (snapshot.empty) {
+                    listContainer.innerHTML = '<div class="text-center text-gray-500 py-8">No hay solicitudes registradas.</div>';
+                    return;
+                }
+
+                snapshot.forEach(docSnap => {
+                    listContainer.appendChild(createRequestRow(docSnap.id, docSnap.data()));
+                });
+            });
+        }
+
+        function createRequestRow(id, data) {
+            const div = document.createElement('div');
+            div.className = "bg-white p-4 rounded-lg shadow mb-3 border-l-4 flex flex-col md:flex-row justify-between items-center";
+            
+            let statusColor = 'border-gray-300';
+            if(data.status === 'pending') statusColor = 'border-yellow-400';
+            if(data.status === 'approved') statusColor = 'border-green-500';
+            if(data.status === 'rejected') statusColor = 'border-red-500';
+            div.classList.add(statusColor);
+
+            const actions = data.status === 'pending' ? `
+                <div class="flex gap-2 mt-2 md:mt-0">
+                    <button onclick="updateStatus('${id}', 'approved')" class="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 shadow">Aceptar</button>
+                    <button onclick="updateStatus('${id}', 'rejected')" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 shadow">Rechazar</button>
+                </div>
+            ` : `<span class="text-xs uppercase font-bold text-gray-400 mt-2 md:mt-0">${data.status}</span>`;
+
+            div.innerHTML = `
+                <div class="text-left w-full md:w-auto">
+                    <div class="font-bold text-gray-800">${data.groupName}</div>
+                    <div class="text-sm text-gray-600">
+                        <i class="fas fa-user"></i> ${data.repName} | 
+                        <i class="fas fa-calendar"></i> ${data.date} | 
+                        <i class="fas fa-clock"></i> ${data.hour}:00
+                    </div>
+                </div>
+                ${actions}
+            `;
+            return div;
+        }
+
+        window.updateStatus = async (docId, newStatus) => {
+            try {
+                const ref = doc(db, COLLECTION_NAME, docId);
+                await updateDoc(ref, { status: newStatus });
+            } catch (e) {
+                alert("Error actualizando estado.");
+            }
+        };
+
+        // Control visual del formulario login
+        document.getElementById('login-role').addEventListener('change', (e) => {
+            const isStudent = e.target.value === 'student';
+            document.getElementById('student-fields').style.display = isStudent ? 'block' : 'none';
+            document.getElementById('admin-fields').style.display = isStudent ? 'none' : 'block';
+        });
+
+    </script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+    <!-- VISTA LOGIN -->
+    <div id="login-view" class="min-h-screen flex items-center justify-center px-4">
+        <div class="max-w-md w-full bg-white rounded-xl shadow-xl overflow-hidden fade-in">
+            <div class="bg-blue-900 p-6 text-center">
+                <i class="fas fa-network-wired text-4xl text-white mb-3"></i>
+                <h1 class="text-2xl font-bold text-white">Lab de Redes</h1>
+                <p class="text-blue-200 text-sm">Gestión de Turnos</p>
+            </div>
+            <form onsubmit="handleLogin(event)" class="p-8 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">¿Quién eres?</label>
+                    <select id="login-role" class="w-full border p-2 rounded-lg">
+                        <option value="student">Jefe de Grupo</option>
+                        <option value="admin">Encargado (Admin)</option>
+                    </select>
+                </div>
+
+                <div id="student-fields" class="space-y-4">
+                    <input type="text" id="login-name" placeholder="Tu Nombre" class="w-full border p-2 rounded-lg">
+                    <input type="text" id="login-group" placeholder="Nombre del Grupo" class="w-full border p-2 rounded-lg">
+                </div>
+
+                <div id="admin-fields" class="hidden">
+                    <input type="password" id="login-pass" placeholder="Contraseña" class="w-full border p-2 rounded-lg">
+                </div>
+
+                <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg font-bold hover:bg-blue-700 shadow">Ingresar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- VISTA ESTUDIANTE -->
+    <div id="student-dashboard" class="hidden fade-in">
+        <nav class="bg-white shadow mb-6">
+            <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-user-graduate text-blue-600 text-xl"></i>
+                    <div>
+                        <h2 class="font-bold">Panel de Estudiante</h2>
+                        <p id="student-name-display" class="text-xs text-gray-500">...</p>
+                    </div>
+                </div>
+                <button onclick="handleLogout()" class="text-gray-500 hover:text-red-600 text-sm"><i class="fas fa-sign-out-alt"></i> Salir</button>
+            </div>
+        </nav>
+
+        <main class="max-w-6xl mx-auto px-4 pb-10">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-bold">Seleccionar Turno</h3>
+                <input type="date" id="student-date" class="border p-2 rounded-lg">
+            </div>
+            <div id="slots-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
+        </main>
+    </div>
+
+    <!-- VISTA ADMIN -->
+    <div id="admin-dashboard" class="hidden fade-in">
+        <nav class="bg-gray-800 shadow mb-6">
+            <div class="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <i class="fas fa-shield-alt text-yellow-400 text-xl"></i>
+                    <div class="text-white">
+                        <h2 class="font-bold">Panel de Administración</h2>
+                        <p id="admin-name-display" class="text-xs text-gray-400">...</p>
+                    </div>
+                </div>
+                <button onclick="handleLogout()" class="text-gray-300 hover:text-white text-sm"><i class="fas fa-sign-out-alt"></i> Salir</button>
+            </div>
+        </nav>
+
+        <main class="max-w-4xl mx-auto px-4 pb-10">
+            <h3 class="text-xl font-bold mb-4">Solicitudes Recientes</h3>
+            <div id="requests-list"></div>
+        </main>
+    </div>
+
+</body>
+</html>
