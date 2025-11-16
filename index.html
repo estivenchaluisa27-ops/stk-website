@@ -53,7 +53,7 @@
             <form onsubmit="handleLogin(event)" class="space-y-4">
                 <div>
                     <label for="login-role" class="block text-sm font-medium text-gray-700 mb-1">Selecciona tu Rol</label>
-                    <select id="login-role" onchange="toggleLoginFields()" class="w-full border border-gray-300 p-3 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                    <select id="login-role" class="w-full border border-gray-300 p-3 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
                         <option value="student">Jefe de Grupo (Líder)</option>
                         <option value="admin">Administrador del Laboratorio</option>
                     </select>
@@ -221,6 +221,11 @@
             setTimeout(() => box.classList.add('hidden'), 5000);
         }
 
+        // *** FUNCIÓN AÑADIDA PARA CORREGIR EL ERROR ***
+        function hideMessage() {
+            document.getElementById('message-box').classList.add('hidden');
+        }
+
         function formatReservationId(date, hour) {
             const yyyy = date.getFullYear();
             const mm = String(date.getMonth() + 1).padStart(2, '0');
@@ -282,7 +287,7 @@
             // 1. Limpiamos cualquier sesión antigua
             // (Si no hay sesión, no hace nada)
             await signOut(auth);
-            hideMessage();
+            hideMessage(); // <--- Esta línea ahora funciona
 
             if (!email || !password) {
                 showMessage("Por favor, introduce tu correo y contraseña.", 'error');
@@ -409,7 +414,10 @@
                 }
             }, (error) => {
                 console.error("Error al escuchar la base de datos:", error);
-                showMessage("Error al cargar la base de datos de turnos.", 'error');
+                // No mostramos el error en el login si ya estamos dentro
+                if (!document.getElementById('login-view').classList.contains('hidden')) {
+                     showMessage("Error al cargar la base de datos de turnos.", 'error');
+                }
             });
         }
 
@@ -667,6 +675,11 @@
         window.changeWeek = (offset) => {
             currentWeekOffset += offset;
             renderCalendar();
+        };
+
+        // Función que se usaba en el login (ya no necesaria, pero se deja por si acaso)
+        window.toggleLoginFields = () => {
+             // Ya no es necesario cambiar los campos, se usan los mismos para ambos roles.
         };
 
     </script>
