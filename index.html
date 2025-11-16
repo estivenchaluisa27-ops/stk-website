@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Gestión de Turnos - Laboratorio de Redes</title>
+    
+    <!-- FAVICON (Icono de Redes) -->
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='1.5' stroke='%231e293b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M21 12.79a9 9 0 11-18 0 9 9 0 0118 0z' /%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M12 21a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9h18' /%3E%3C/svg%3E">
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
@@ -16,7 +20,7 @@
             background: white; 
             border-radius: 1rem; 
             box-shadow: 0 10px 15px rgba(0, 0, 0, 0.05); 
-            padding: 2rem; /* Más padding */
+            padding: 1.5rem; /* Ajuste de padding */
         }
         
         /* Nuevo Header Profesional */
@@ -63,16 +67,26 @@
             height: 60px;
         }
         
-        /* Slot de Horas Pasadas */
-        .slot-past {
-            background-color: #f3f4f6; /* Gris muy claro */
+        /* Slot "No Disponible" (Pasado o Bloqueado) */
+        .slot-unavailable {
+            background-color: #e5e7eb; /* Gris claro */
             color: #9ca3af; /* Texto gris claro */
             cursor: not-allowed;
             border: 1px dashed #d1d5db;
+            font-weight: 600;
         }
 
-        /* Slot Bloqueado por Admin */
-        .slot-blocked {
+        /* Slot "No Disponible" para Estudiante (Bloqueado por Admin) */
+        .slot-blocked-student {
+             background-color: #e5e7eb; /* Gris claro */
+             color: #9ca3af; /* Texto gris claro */
+             cursor: not-allowed;
+             border: 1px dashed #d1d5db;
+             font-weight: 600;
+        }
+
+        /* Slot Bloqueado por Admin (Vista Admin) */
+        .slot-blocked-admin {
             background-color: #374151; /* Gris oscuro */
             color: #d1d5db; /* Texto gris claro */
             font-weight: 600;
@@ -126,7 +140,7 @@
 <body class="min-h-screen flex items-center justify-center p-4">
 
     <!-- Contenedor Principal -->
-    <div id="app-container" class="w-full max-w-6xl">
+    <div id="app-container" class="w-full max-w-7xl"> <!-- Ampliado a 7xl -->
 
         <!-- Vista de Login -->
         <div id="login-view" class="max-w-lg mx-auto">
@@ -141,7 +155,7 @@
                 <p class="text-lg text-gray-500">Sistema de Gestión de Laboratorios</p>
             </div>
             
-            <div class="card">
+            <div class="card p-8"> <!-- Padding aumentado -->
                 <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">Acceso al Sistema</h2>
                 <div id="message-box" class="mb-4 hidden p-3 rounded-lg text-sm" role="alert"></div>
 
@@ -189,7 +203,7 @@
                 <div class="lg:col-span-2 card space-y-4">
                     <h2 class="text-2xl font-semibold text-gray-700">Gestión de Horario Semanal</h2>
                     <p class="text-sm text-gray-500">
-                        Selecciona múltiples slots (Libres o Bloqueados) y usa los botones de acción.
+                        Selecciona slots (Libres, Bloqueados o Aprobados) y usa los botones de acción.
                     </p>
                     
                     <div class="flex justify-between items-center mb-4">
@@ -225,71 +239,90 @@
 
             </div>
 
-            <!-- Contenido del Panel: Estudiante -->
-            <div id="student-panel" class="hidden mt-4">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-2xl font-semibold text-gray-700">Reservar Turno (Lun-Vie)</h2>
-                    
-                    <div class="flex items-center space-x-2">
-                        <button onclick="changeWeek(-1)" class="btn btn-secondary">
-                            &lt; Semana Ant.
+            <!-- Contenido del Panel: Estudiante (NUEVO LAYOUT 2 COLUMNAS) -->
+            <div id="student-panel" class="hidden mt-4 grid grid-cols-1 lg:grid-cols-3 gap-8">
+                
+                <!-- Columna Izquierda: Calendario y Solicitud -->
+                <div class="lg:col-span-2 space-y-6">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-2xl font-semibold text-gray-700">Reservar Turno (Lun-Vie)</h2>
+                        <div class="flex items-center space-x-2">
+                            <button onclick="changeWeek(-1)" class="btn btn-secondary">
+                                &lt; Semana Ant.
+                            </button>
+                            <span id="student-week-display" class="font-bold text-lg text-gray-700 text-center w-48"></span>
+                            <button onclick="changeWeek(1)" class="btn btn-secondary">
+                                Semana Sig. &gt;
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="card overflow-x-auto p-2 border">
+                        <div id="student-calendar" class="calendar-grid min-w-max">
+                            <!-- Generado por JS -->
+                        </div>
+                    </div>
+
+                    <div class="p-6 bg-yellow-50 border border-yellow-200 rounded-lg shadow-md">
+                        <h3 class="text-xl font-semibold mb-2 text-yellow-800">Solicitud de Turno</h3>
+                        <p id="selected-slot-display" class="mb-4 text-gray-700">
+                            Selecciona uno o más horarios libres en el calendario para solicitar un turno.
+                        </p>
+                        <button id="request-button" onclick="submitRequest()" class="btn btn-primary" disabled>
+                            Enviar Solicitud (0 turnos)
                         </button>
-                        <span id="student-week-display" class="font-bold text-lg text-gray-700 text-center w-48"></span>
-                        <button onclick="changeWeek(1)" class="btn btn-secondary">
-                            Semana Sig. &gt;
-                        </button>
+                    </div>
+                </div>
+                
+                <!-- Columna Derecha: Leyenda de Estudiante -->
+                <div class="lg:col-span-1 card">
+                    <h4 class="text-lg font-semibold mb-4 text-center text-gray-700">Leyenda de Estados</h4>
+                    <div class="space-y-3">
+                        
+                        <div class="flex items-center space-x-3 p-2">
+                            <div class="w-6 h-6 rounded-md bg-white border border-gray-300 flex-shrink-0"></div>
+                            <div>
+                                <span class="font-semibold text-gray-700">Libre</span>
+                                <p class="text-xs text-gray-500">Horario disponible para reservar.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center space-x-3 p-2">
+                            <div class="w-6 h-6 rounded-md slot-selected flex-shrink-0"></div>
+                            <div>
+                                <span class="font-semibold text-gray-700">Mi Selección</span>
+                                <p class="text-xs text-gray-500">Turno que estás a punto de solicitar.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center space-x-3 p-2">
+                            <div class="w-6 h-6 rounded-md bg-yellow-200 border border-yellow-300 flex-shrink-0"></div>
+                            <div>
+                                <span class="font-semibold text-gray-700">Pendiente</span>
+                                <p class="text-xs text-gray-500">Esperando aprobación del admin.</p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center space-x-3 p-2">
+                            <div class="w-6 h-6 rounded-md bg-red-500 flex-shrink-0"></div>
+                            <div>
+                                <span class="font-semibold text-gray-700">Reservado</span>
+                                <p class="text-xs text-gray-500">Turno confirmado por otro grupo.</p>
+                            </div>
+                        </div>
+                        
+                        <!-- CORREGIDO -->
+                        <div class="flex items-center space-x-3 p-2">
+                            <div class="w-6 h-6 rounded-md slot-unavailable flex-shrink-0"></div>
+                            <div>
+                                <span class="font-semibold text-gray-700">No Disponible</span>
+                                <p class="text-xs text-gray-500">Hora pasada o bloqueada por admin.</p>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
 
-                <div class="card overflow-x-auto p-2 border">
-                    <div id="student-calendar" class="calendar-grid min-w-max">
-                        <!-- Generado por JS -->
-                    </div>
-                </div>
-
-                <!-- LEYENDA DE ESTADOS (ACTUALIZADA) -->
-                <div id="student-legend" class="mt-6 card p-4">
-                    <h4 class="text-lg font-semibold mb-3 text-center text-gray-700">Leyenda</h4>
-                    <div class="flex flex-wrap gap-x-6 gap-y-2 justify-center">
-                        
-                        <div class="flex items-center space-x-2">
-                            <div class="w-5 h-5 rounded-md bg-white border border-gray-300"></div>
-                            <span class="text-sm text-gray-600">Libre</span>
-                        </div>
-                        
-                        <div class="flex items-center space-x-2">
-                            <div class="w-5 h-5 rounded-md slot-selected"></div>
-                            <span class="text-sm text-gray-600">Mi Selección</span>
-                        </div>
-                        
-                        <div class="flex items-center space-x-2">
-                            <div class="w-5 h-5 rounded-md bg-yellow-200 border border-yellow-300"></div>
-                            <span class="text-sm text-gray-600">Pendiente</span>
-                        </div>
-                        
-                        <div class="flex items-center space-x-2">
-                            <div class="w-5 h-5 rounded-md bg-red-500"></div>
-                            <span class="text-sm text-gray-600">Reservado</span>
-                        </div>
-                        
-                        <div class="flex items-center space-x-2">
-                            <div class="w-5 h-5 rounded-md bg-gray-100 text-gray-400 border border-gray-300"></div>
-                            <span class="text-sm text-gray-600">No Disponible</span>
-                        </div>
-
-                    </div>
-                </div>
-                <!-- FIN DE LEYENDA -->
-
-                <div class="mt-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg shadow-md">
-                    <h3 class="text-xl font-semibold mb-2 text-yellow-800">Solicitud de Turno</h3>
-                    <p id="selected-slot-display" class="mb-4 text-gray-700">
-                        Selecciona uno o más horarios libres en el calendario para solicitar un turno.
-                    </p>
-                    <button id="request-button" onclick="submitRequest()" class="btn btn-primary" disabled>
-                        Enviar Solicitud (0 turnos)
-                    </button>
-                </div>
             </div>
         </div>
     </div>
@@ -574,7 +607,7 @@
                 userRole = null;
                 currentGroup = null;
                 currentRepName = null;
-                loginView.classList.remove('hidden');
+                loginView.classList.add('hidden');
                 systemView.classList.add('hidden');
             }
         });
@@ -644,7 +677,7 @@
                     
                     if (slotDateHour < new Date()) {
                         slotEl.textContent = 'Pasado';
-                        slotEl.className = 'time-slot slot-past'; // <-- NUEVA CLASE
+                        slotEl.className = 'time-slot slot-unavailable'; // <-- UNIFICADO
                         slotEl.onclick = null;
                     } 
                     else {
@@ -681,7 +714,7 @@
             // Limpiar selecciones previas visualmente
             const allSlots = document.querySelectorAll('.time-slot');
             allSlots.forEach(slotEl => {
-                if (slotEl.classList.contains('slot-past')) return; // Ignorar 'Pasado'
+                if (slotEl.classList.contains('slot-unavailable')) return; // Ignorar 'Pasado'
                 
                 // Resetear a 'Libre' antes de aplicar estados
                 slotEl.className = 'time-slot slot-free text-center';
@@ -703,15 +736,16 @@
                 
                 slotElements.forEach(slotEl => {
                     if (!slotEl) return; 
-                    if (slotEl.classList.contains('slot-past')) return;
+                    if (slotEl.classList.contains('slot-unavailable')) return;
 
                     slotEl.className = 'time-slot';
                     
                     // --- LÓGICA DE VISUALIZACIÓN DE COLOR (Modificada) ---
                     let colorName;
                     if (userRole === 'admin') {
-                        colorName = res.color || 'gray';
+                        colorName = res.color || 'gray'; // Admin ve colores
                     } else {
+                        // Estudiante ve colores genéricos de leyenda
                         if (res.status === 'approved') {
                             colorName = 'red'; // Color genérico "Reservado" 
                         } else if (res.status === 'pending') {
@@ -728,8 +762,16 @@
                     switch (res.status) {
                         case 'approved':
                             slotEl.innerHTML = `<span class="font-bold">${res.group}</span><span class="text-xs">Reservado</span>`;
-                            slotEl.classList.add(...getSlotColorClasses(colorName, 'approved'), 'cursor-not-allowed');
-                            slotEl.onclick = (userRole === 'admin') ? () => adminSelectSlot(slotEl, date, hour, 'occupied') : null;
+                            slotEl.classList.add(...getSlotColorClasses(colorName, 'approved'));
+                            
+                            // NUEVO: Admin puede seleccionar slots aprobados para cancelarlos
+                            if (userRole === 'admin') {
+                                slotEl.classList.add('cursor-pointer');
+                                slotEl.onclick = () => adminSelectSlot(slotEl, date, hour, 'approved');
+                            } else {
+                                slotEl.classList.add('cursor-not-allowed');
+                                slotEl.onclick = null;
+                            }
                             break;
                             
                         case 'pending':
@@ -744,19 +786,19 @@
                                 slotEl.onclick = null;
                             } else { // Admin
                                 slotEl.classList.add('cursor-not-allowed');
-                                slotEl.onclick = () => adminSelectSlot(slotEl, date, hour, 'occupied');
+                                slotEl.onclick = null; // Admin no puede seleccionar pendientes (debe aprobar/rechazar)
                             }
                             break;
                         
                         case 'blocked':
-                            slotEl.innerHTML = `<span class="font-bold">Bloqueado</span><span class="text-xs">Admin</span>`;
-                            slotEl.classList.add('slot-blocked'); // <-- NUEVA CLASE
+                            slotEl.innerHTML = `<span class="font-bold">No Disponible</span><span class="text-xs">Lab.</span>`;
+                            
                             if (userRole === 'admin') {
-                                slotEl.classList.add('cursor-pointer');
-                                slotEl.classList.remove('cursor-not-allowed');
+                                slotEl.classList.add('slot-blocked-admin', 'cursor-pointer');
                                 slotEl.onclick = () => adminSelectSlot(slotEl, date, hour, 'blocked');
                             } else {
-                                slotEl.classList.add('cursor-not-allowed');
+                                // UNIFICADO: Estudiante ve 'blocked' igual que 'past'
+                                slotEl.classList.add('slot-blocked-student'); 
                                 slotEl.onclick = null;
                             }
                             break;
@@ -955,8 +997,9 @@
         // --- NUEVA LÓGICA DE ADMIN (SELECCIÓN MÚLTIPLE) ---
 
         window.adminSelectSlot = (slotEl, date, hour, currentStatus) => {
-            if (currentStatus === 'occupied') {
-                showMessage("No se puede seleccionar un turno pendiente o aprobado.", "info");
+            // Admin no puede seleccionar pendientes (debe usar la lista de la derecha)
+            if (currentStatus === 'pending') {
+                showMessage("Use la lista de la derecha para aprobar o rechazar solicitudes pendientes.", "info");
                 return;
             }
             
@@ -989,28 +1032,31 @@
                 
                 // Contar cuántos son "libres" (para bloquear) y cuántos son "bloqueados" (para desbloquear)
                 const freeToBlock = adminSelectedSlots.filter(s => s.status === 'free').length;
-                const blockedToUnblock = adminSelectedSlots.filter(s => s.status === 'blocked').length;
+                const blockedOrApprovedToUnblock = adminSelectedSlots.filter(s => s.status === 'blocked' || s.status === 'approved').length;
 
                 blockBtn.textContent = `Bloquear (${freeToBlock})`;
-                unblockBtn.textContent = `Desbloquear (${blockedToUnblock})`;
+                unblockBtn.textContent = `Desbloq./Cancelar (${blockedOrApprovedToUnblock})`;
                 
                 blockBtn.disabled = freeToBlock === 0;
-                unblockBtn.disabled = blockedToUnblock === 0;
+                unblockBtn.disabled = blockedOrApprovedToUnblock === 0;
             }
         }
         
         window.adminSubmitBatch = async (action) => {
+            // Modificado para incluir 'approved' en la acción de desbloquear/cancelar
             const slotsToProcess = adminSelectedSlots.filter(s => 
                 (action === 'blocked' && s.status === 'free') || 
-                (action === 'unblock' && s.status === 'blocked')
+                (action === 'unblock' && (s.status === 'blocked' || s.status === 'approved'))
             );
 
+            let actionText = action === 'blocked' ? 'BLOQUEAR' : 'DESBLOQUEAR/CANCELAR';
+            
             if (slotsToProcess.length === 0) {
-                showMessage(`No hay slots seleccionados que sean ${action === 'blocked' ? 'libres' : 'bloqueados'}.`, 'info');
+                showMessage(`No hay slots seleccionados que sean ${action === 'blocked' ? 'libres' : 'bloqueados o aprobados'}.`, 'info');
                 return;
             }
 
-            if (!window.confirm(`¿Estás seguro de que quieres ${action === 'blocked' ? 'BLOQUEAR' : 'DESBLOQUEAR'} ${slotsToProcess.length} turnos?`)) return;
+            if (!window.confirm(`¿Estás seguro de que quieres ${actionText} ${slotsToProcess.length} turnos?`)) return;
 
             const batch = writeBatch(db);
             try {
@@ -1030,6 +1076,7 @@
                         };
                         batch.set(docRef, blockData);
                     } else if (action === 'unblock') {
+                        // Desbloquear (si es 'blocked') o Cancelar (si es 'approved') es la misma acción: borrar el doc.
                         batch.delete(docRef);
                     }
                 }
