@@ -3,27 +3,154 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Reservas - Laboratorio de Redes</title>
+    <title>Sistema de Gestión de Turnos - Laboratorio de Redes</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
-    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; }
-        .fade-in { animation: fadeIn 0.3s ease-in-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        /* Estilos base, fuentes e interactividad */
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .card { background: white; border-radius: 1rem; box-shadow: 0 10px 15px rgba(0, 0, 0, 0.05); padding: 1.5rem; }
+        .calendar-grid { 
+            display: grid; 
+            grid-template-columns: repeat(9, minmax(80px, 1fr)); /* Columna de Día + 8 Horas */
+            gap: 4px; 
+            font-size: 0.8rem;
+        }
+        .time-slot { padding: 0.5rem; text-align: center; border-radius: 0.5rem; cursor: pointer; transition: all 0.2s; height: 60px; display: flex; flex-direction: column; justify-content: center; align-items: center; line-height: 1.2; }
+        .slot-free { background-color: #d1fae5; color: #065f46; }
+        .slot-pending { background-color: #fef3c7; color: #92400e; }
+        .slot-approved { background-color: #fee2e2; color: #991b1b; cursor: not-allowed; }
+        .slot-selected { background-color: #3b82f6; color: white; box-shadow: 0 4px 6px rgba(59, 130, 246, 0.5); }
+        .slot-header { font-weight: bold; background-color: #e5e7eb; padding: 0.5rem; border-radius: 0.5rem; display: flex; justify-content: center; align-items: center; }
+        
+        .btn-primary {
+            background-color: #4f46e5;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem;
+            transition: all 0.2s;
+            font-weight: 600;
+            box-shadow: 0 4px 6px rgba(79, 70, 229, 0.3);
+        }
+        .btn-primary:hover {
+            background-color: #4338ca;
+            box-shadow: 0 6px 8px rgba(79, 70, 229, 0.4);
+        }
     </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <!-- Contenedor Principal -->
+    <div id="app-container" class="w-full max-w-5xl">
+
+        <!-- Vista de Login -->
+        <div id="login-view" class="card max-w-lg mx-auto">
+            <h1 class="text-3xl font-bold mb-6 text-center text-gray-800">Acceso al Sistema de Turnos</h1>
+            
+            <!-- Contenedor de Mensajes -->
+            <div id="message-box" class="mb-4 hidden p-3 rounded-lg text-sm" role="alert"></div>
+
+            <form onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label for="login-role" class="block text-sm font-medium text-gray-700 mb-1">Selecciona tu Rol</label>
+                    <select id="login-role" onchange="toggleLoginFields()" class="w-full border border-gray-300 p-3 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
+                        <option value="student">Jefe de Grupo (Líder)</option>
+                        <option value="admin">Administrador del Laboratorio</option>
+                    </select>
+                </div>
+
+                <!-- Campos de Login (Compartidos por ambos roles) -->
+                <input type="email" id="login-email" placeholder="Correo Electrónico (ej: lider1@uni.edu)" class="w-full border p-3 rounded-lg" required>
+                <input type="password" id="login-password" placeholder="Contraseña (ej: pass123)" class="w-full border p-3 rounded-lg" required>
+
+                <button type="submit" class="btn-primary w-full mt-6">
+                    Ingresar
+                </button>
+            </form>
+        </div>
+
+        <!-- Vista del Sistema -->
+        <div id="system-view" class="hidden w-full">
+            <header class="flex justify-between items-center mb-6 pb-4 border-b border-gray-300">
+                <h1 class="text-3xl font-bold text-gray-900">
+                    Panel de <span id="user-display-role">Carga</span>
+                </h1>
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm font-medium text-gray-600">
+                        <span id="user-display-group"></span> (<span id="user-display-email"></span>)
+                    </span>
+                    <button onclick="handleLogout()" class="text-red-600 hover:text-red-800 font-semibold transition duration-150">
+                        Salir
+                    </button>
+                </div>
+            </header>
+            
+            <!-- Contenido del Panel: Administrador -->
+            <div id="admin-panel" class="hidden card mt-4">
+                <h2 class="text-2xl font-semibold mb-4 text-gray-700">Gestión de Solicitudes Pendientes</h2>
+                <div id="requests-list" class="space-y-4">
+                    <p class="text-gray-500">Cargando solicitudes...</p>
+                </div>
+            </div>
+
+            <!-- Contenido del Panel: Estudiante -->
+            <div id="student-panel" class="hidden mt-4">
+                <h2 class="text-2xl font-semibold mb-4 text-gray-700">Reservar Turno de Laboratorio (13:00 - 20:00)</h2>
+                
+                <div class="flex justify-between items-center mb-4">
+                    <button onclick="changeWeek(-1)" class="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition duration-150">
+                        &lt; Semana Anterior
+                    </button>
+                    <span id="week-display" class="font-bold text-lg text-gray-700"></span>
+                    <button onclick="changeWeek(1)" class="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition duration-150">
+                        Semana Siguiente &gt;
+                    </button>
+                </div>
+
+                <!-- Calendario de Turnos -->
+                <div class="card overflow-x-auto">
+                    <div id="calendar" class="calendar-grid min-w-max">
+                        <!-- Generado por JS -->
+                    </div>
+                </div>
+
+                <div class="mt-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg shadow-md">
+                    <h3 class="text-xl font-semibold mb-2 text-yellow-800">Solicitud de Turno</h3>
+                    <p id="selected-slot-display" class="mb-4 text-gray-700">
+                        Selecciona un horario libre en el calendario para solicitar un turno.
+                    </p>
+                    <button id="request-button" onclick="submitRequest()" class="btn-primary" disabled>
+                        Enviar Solicitud de Reserva
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script type="module">
-        // --- IMPORTANTE: NO TOCAR ESTAS IMPORTACIONES ---
-        // Usamos los módulos de CDN para compatibilidad con el navegador
+        // --- IMPORTS Y CONFIGURACIÓN ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, query, where, onSnapshot, updateDoc, doc, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // --- ZONA DE CONFIGURACIÓN DE FIREBASE (TUS DATOS REALES) ---
+        import { 
+            getAuth, 
+            signInWithEmailAndPassword, 
+            signOut,
+            onAuthStateChanged, 
+            setPersistence,
+            browserLocalPersistence // Mantiene la sesión iniciada
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, 
+            doc, 
+            setDoc, 
+            onSnapshot, 
+            collection, 
+            query, 
+            serverTimestamp,
+            getDocs
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
-        // Tus datos de configuración
+        // Configuración de la aplicación (Se asume que estas variables están definidas en el entorno o en el archivo)
+        const appId = 'lab-redes-turnos'; 
         const firebaseConfig = {
             apiKey: "AIzaSyCR4Kk7kIBpSW3cF02b8zUHegvV4WQNuyI",
             authDomain: "lab-redes-turnos.firebaseapp.com",
@@ -33,393 +160,515 @@
             appId: "1:592544790067:web:00bde37b50d3edf9f59546"
         };
 
-        // --- INICIALIZACIÓN DE FIREBASE (Solo una vez) ---
         const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
         const db = getFirestore(app);
+        const auth = getAuth(app);
+        
+        // Usamos persistencia local para mantener al usuario logueado
+        setPersistence(auth, browserLocalPersistence);
 
-        // Nombre de la colección en la base de datos
-        const COLLECTION_NAME = "bookings"; 
+        let userId = null;
+        let userRole = null;
+        let currentGroup = null;
+        let currentRepName = null;
+        let selectedDate = null;
+        let selectedHour = null;
+        let currentWeekOffset = 0;
+        let reservations = []; // Caché local de reservas
+        let authReady = false;
 
-        // Estado de la aplicación
-        let currentUser = null;
-        let userRole = 'student'; 
-        let currentGroup = '';
-        let currentRepName = '';
-        let selectedDate = new Date().toISOString().split('T')[0]; 
-
-        // Referencias al DOM
-        const views = {
-            login: document.getElementById('login-view'),
-            student: document.getElementById('student-dashboard'),
-            admin: document.getElementById('admin-dashboard')
+        // --- CONSTANTES DE AUTENTICACIÓN FIJAS (CREADAS MANUALMENTE EN FIREBASE) ---
+        
+        // Mapa de líderes de grupo (USO PARA ASIGNAR EL GRUPO UNA VEZ AUTENTICADO)
+        const GRUPO_LIDERES = {
+            "lider1@uni.edu": "Grupo Redes A",
+            "lider2@uni.edu": "Grupo Redes B",
+            "lider3@uni.edu": "Grupo Control C",
+            "lider4@uni.edu": "Grupo Servidores D",
+            "lider5@uni.edu": "Grupo Seguridad E",
+            "lider6@uni.edu": "Grupo Pruebas F",
+            "lider7@uni.edu": "Grupo Final G",
         };
+        const LIDER_PASS = 'pass123'; // Contraseña compartida para líderes
 
-        // --- LÓGICA DE AUTENTICACIÓN ---
+        // Emails de administradores (USO PARA ASIGNAR EL ROL ADMIN)
+        const ADMIN_CREDENTIALS = {
+            "admin1@lab.edu": true,
+            "admin2@lab.edu": true,
+        };
+        const ADMIN_PASS = 'adminpass'; // Contraseña compartida para admins
+
+        const HOURS = ['13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'];
+        // Usamos la ruta de la base de datos pública definida por las reglas
+        const COLLECTION_PATH = `artifacts/${appId}/public/data/reservations`;
+
+        // --- UTILIDADES ---
+
+        function showMessage(message, type) {
+            const box = document.getElementById('message-box');
+            box.innerText = message;
+            box.className = 'mb-4 p-3 rounded-lg text-sm';
+            box.classList.remove('hidden');
+
+            const classMap = {
+                'success': ['bg-green-100', 'text-green-800', 'border', 'border-green-400'],
+                'error': ['bg-red-100', 'text-red-800', 'border', 'border-red-400'],
+                'info': ['bg-blue-100', 'text-blue-800', 'border', 'border-blue-400'],
+            };
+            box.classList.add(...classMap[type]);
+            
+            // Ocultar el mensaje después de 5 segundos
+            setTimeout(() => box.classList.add('hidden'), 5000);
+        }
+
+        function formatReservationId(date, hour) {
+            const yyyy = date.getFullYear();
+            const mm = String(date.getMonth() + 1).padStart(2, '0');
+            const dd = String(date.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}_${hour.replace(':', '-')}`;
+        }
+
+        function getWeekDays(offset) {
+            const days = [];
+            const today = new Date();
+            // Asegurarse que la semana empieza en Lunes (1)
+            const dayOfWeek = today.getDay(); 
+            const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+            
+            today.setDate(today.getDate() + diff + (offset * 7));
+
+            for (let i = 0; i < 7; i++) {
+                const date = new Date(today);
+                date.setDate(today.getDate() + i);
+                days.push(date);
+            }
+            return days;
+        }
+        
+        // --- MANEJO DE VISTAS Y AUTENTICACIÓN ---
+
+        function renderSystemView() {
+            const loginView = document.getElementById('login-view');
+            const systemView = document.getElementById('system-view');
+            const adminPanel = document.getElementById('admin-panel');
+            const studentPanel = document.getElementById('student-panel');
+            
+            loginView.classList.add('hidden');
+            systemView.classList.remove('hidden');
+            systemView.classList.add('flex', 'flex-col');
+            
+            document.getElementById('user-display-role').textContent = userRole === 'admin' ? 'Administración' : 'Jefe de Grupo';
+            document.getElementById('user-display-group').textContent = currentGroup;
+            document.getElementById('user-display-email').textContent = auth.currentUser.email;
+
+            // Cargar el panel correspondiente al rol
+            if (userRole === 'admin') {
+                adminPanel.classList.remove('hidden');
+                studentPanel.classList.add('hidden');
+                updateCalendarView(); // El admin también ve el calendario y la lista
+            } else {
+                adminPanel.classList.add('hidden');
+                studentPanel.classList.remove('hidden');
+                renderCalendar();
+            }
+        }
 
         window.handleLogin = async (e) => {
             e.preventDefault();
             const role = document.getElementById('login-role').value;
-            const name = document.getElementById('login-name').value;
-            const group = document.getElementById('login-group').value;
-            const adminPass = document.getElementById('login-pass').value;
+            const email = document.getElementById('login-email').value.trim();
+            const password = document.getElementById('login-password').value;
 
-            if (role === 'admin') {
-                // CONTRASEÑA DE ADMINISTRADOR (Puedes cambiarla aquí)
-                if (adminPass !== 'admin123') {
-                    // Usamos la consola para errores en lugar de alert()
-                    console.error("Error: Contraseña de administrador incorrecta.");
-                    document.getElementById('admin-fields').querySelector('input').value = ""; // Limpiar campo
-                    return;
-                }
-                userRole = 'admin';
-            } else {
-                if (!name || !group) {
-                    // Usamos la consola para errores en lugar de alert()
-                    console.error("Error: Por favor completa todos los campos.");
-                    return;
-                }
-                userRole = 'student';
-                currentRepName = name;
-                currentGroup = group;
+            // 1. Limpiamos cualquier sesión antigua
+            // (Si no hay sesión, no hace nada)
+            await signOut(auth);
+            hideMessage();
+
+            if (!email || !password) {
+                showMessage("Por favor, introduce tu correo y contraseña.", 'error');
+                return;
             }
 
             try {
-                // Intenta iniciar sesión anónimamente. Si Firebase está configurado, esto funciona.
-                await signInAnonymously(auth);
-                // Si la autenticación falla, onAuthStateChanged no se disparará.
+                // 2. Autenticación con Firebase Email/Password
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                const authenticatedEmail = userCredential.user.email;
+
+                // 3. Asignación de Rol
+                if (ADMIN_CREDENTIALS[authenticatedEmail]) {
+                    // Validar contraseña de Admin
+                    if (password !== ADMIN_PASS) {
+                         await signOut(auth);
+                         showMessage("Contraseña de Administrador incorrecta.", 'error');
+                         return;
+                    }
+                    userRole = 'admin';
+                    currentRepName = 'Admin';
+                    currentGroup = 'ADMIN';
+
+                } else if (GRUPO_LIDERES[authenticatedEmail]) {
+                    // Validar contraseña de Líder
+                     if (password !== LIDER_PASS) {
+                         await signOut(auth);
+                         showMessage("Contraseña de Jefe de Grupo incorrecta.", 'error');
+                         return;
+                    }
+                    userRole = 'student';
+                    currentRepName = authenticatedEmail;
+                    currentGroup = GRUPO_LIDERES[authenticatedEmail];
+
+                } else {
+                    // Usuario autenticado en Firebase, pero no en nuestros mapas
+                    await signOut(auth); 
+                    showMessage("Usuario autenticado, pero no está registrado como Jefe de Grupo o Administrador.", 'error');
+                    return;
+                }
+                
+                // onAuthStateChanged se disparará automáticamente al haber una sesión activa.
+
             } catch (error) {
-                console.error("Error CRÍTICO de autenticación. Verifica tu configuración de Firebase y tu lista de dominios autorizados en la consola.", error);
+                console.error("Error de autenticación:", error.code, error.message);
+                let errorMessage = "Error de credenciales. Revisa tu Correo y Contraseña.";
+                if (error.code === 'auth/user-not-found') {
+                    errorMessage = "Usuario no encontrado. Asegúrate de haber creado la cuenta en Firebase.";
+                } else if (error.code === 'auth/wrong-password') {
+                    errorMessage = "Contraseña incorrecta.";
+                }
+                showMessage(errorMessage, 'error');
             }
+        };
+
+        window.handleLogout = async () => {
+            await signOut(auth);
+            window.location.reload(); // Recarga la página para limpiar todo el estado
         };
 
         onAuthStateChanged(auth, (user) => {
+            if (!authReady) {
+                // El primer chequeo de auth (al cargar la página)
+                authReady = true;
+                initializeDatabaseListener();
+            }
+
+            const loginView = document.getElementById('login-view');
+            const systemView = document.getElementById('system-view');
+
             if (user) {
-                currentUser = user;
-                // Si ya teníamos un rol asignado desde el login (student o admin), vamos a la vista.
-                updateView();
-                if (userRole === 'student') loadStudentView();
-                if (userRole === 'admin') loadAdminView();
+                // Si el usuario recarga la página (sesión persistente)
+                // Re-asignamos los roles basados en el email
+                if (!userRole) { 
+                    const email = user.email;
+                    if (ADMIN_CREDENTIALS[email]) {
+                        userRole = 'admin';
+                        currentGroup = 'ADMIN';
+                        currentRepName = 'Admin';
+                    } else if (GRUPO_LIDERES[email]) {
+                        userRole = 'student';
+                        currentGroup = GRUPO_LIDERES[email];
+                        currentRepName = email;
+                    } else {
+                        signOut(auth); // Usuario desconocido, forzar cierre de sesión
+                        return;
+                    }
+                }
+                userId = user.uid;
+                loginView.classList.add('hidden');
+                renderSystemView();
             } else {
-                // Vuelve al login si la sesión se cierra
-                showView('login');
+                // No hay usuario logueado o la sesión ha terminado.
+                userId = null;
+                userRole = null;
+                currentGroup = null;
+                currentRepName = null;
+                loginView.classList.remove('hidden');
+                systemView.classList.add('hidden');
             }
         });
 
-        window.handleLogout = () => {
-            signOut(auth);
-            window.location.reload();
-        };
+        // --- LÓGICA DEL SISTEMA (CALENDARIO Y RESERVAS) ---
 
-        // --- VISTAS ---
+        function initializeDatabaseListener() {
+            if (!authReady) return; // No escuchar hasta que la auth esté lista
 
-        function showView(viewName) {
-            Object.values(views).forEach(el => el.classList.add('hidden'));
-            if(views[viewName]) {
-                 views[viewName].classList.remove('hidden');
-            } else {
-                console.error(`Vista ${viewName} no encontrada.`);
-            }
-        }
-
-        function updateView() {
-            if (userRole === 'admin') {
-                showView('admin');
-                document.getElementById('admin-name-display').innerText = "Administrador";
-            } else {
-                showView('student');
-                document.getElementById('student-name-display').innerText = `${currentRepName} (${currentGroup})`;
-            }
-        }
-
-        // --- LÓGICA DE ESTUDIANTE ---
-
-        function loadStudentView() {
-            const datePicker = document.getElementById('student-date');
-            datePicker.value = selectedDate;
-            datePicker.min = new Date().toISOString().split('T')[0];
+            const q = collection(db, COLLECTION_PATH);
             
-            datePicker.addEventListener('change', (e) => {
-                selectedDate = e.target.value;
-                listenToSlots();
-            });
-
-            listenToSlots();
-        }
-
-        function listenToSlots() {
-            const slotsContainer = document.getElementById('slots-container');
-            slotsContainer.innerHTML = '<div class="col-span-full text-center text-gray-500">Cargando horarios...</div>';
-
-            const hours = [13, 14, 15, 16, 17, 18, 19, 20];
-            
-            // Consulta a la base de datos
-            const q = query(
-                collection(db, COLLECTION_NAME),
-                where("date", "==", selectedDate)
-            );
-
+            // onSnapshot es la clave de la sincronización en tiempo real.
             onSnapshot(q, (snapshot) => {
-                const bookings = {};
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    bookings[data.hour] = { ...data, id: doc.id };
+                reservations = [];
+                snapshot.forEach((doc) => {
+                    reservations.push({ id: doc.id, ...doc.data() });
                 });
-                renderSlots(hours, bookings);
+                
+                // Solo renderiza si ya estamos en la vista del sistema
+                if (document.getElementById('login-view').classList.contains('hidden')) {
+                    if (userRole === 'student') {
+                        renderCalendar(); // El estudiante necesita un re-renderizado completo
+                    } else if (userRole === 'admin') {
+                        updateCalendarView(); // El admin solo necesita actualizar la lista
+                    }
+                }
+            }, (error) => {
+                console.error("Error al escuchar la base de datos:", error);
+                showMessage("Error al cargar la base de datos de turnos.", 'error');
             });
         }
 
-        function renderSlots(hours, bookings) {
-            const container = document.getElementById('slots-container');
-            container.innerHTML = '';
+        function renderCalendar() {
+            const calendarEl = document.getElementById('calendar');
+            calendarEl.innerHTML = '';
+            
+            const days = getWeekDays(currentWeekOffset);
+            
+            // 1. Cabecera de Días
+            const corner = document.createElement('div');
+            corner.className = 'slot-header text-center';
+            corner.textContent = 'Hora';
+            calendarEl.appendChild(corner);
+            
+            days.forEach(day => {
+                const dayHeader = document.createElement('div');
+                dayHeader.className = 'slot-header';
+                dayHeader.textContent = day.toLocaleDateString('es-ES', { weekday: 'short', month: 'numeric', day: 'numeric' });
+                calendarEl.appendChild(dayHeader);
+            });
 
-            hours.forEach(hour => {
-                const booking = bookings[hour];
-                const timeLabel = `${hour}:00 - ${hour + 1}:00`;
-                const card = document.createElement('div');
-                
-                let content = "";
-                let action = "";
-                let cssClass = "bg-white border-gray-200";
+            // 2. Slots por Hora
+            HOURS.forEach(hour => {
+                const hourHeader = document.createElement('div');
+                hourHeader.className = 'slot-header';
+                hourHeader.textContent = hour;
+                calendarEl.appendChild(hourHeader);
 
-                if (booking) {
-                    if (booking.status === 'approved') {
-                        cssClass = "bg-red-50 border-red-200";
-                        content = `<div class="text-red-600 font-bold"><i class="fas fa-lock"></i> Reservado</div>
-                                     <div class="text-xs text-gray-500 truncate">${booking.groupName}</div>`;
-                    } else if (booking.status === 'pending') {
-                        if (booking.userId === currentUser.uid) {
-                             cssClass = "bg-yellow-50 border-yellow-200";
-                             content = `<div class="text-yellow-600 font-bold">Tu Solicitud</div><div class="text-xs">Pendiente de aprobación</div>`;
-                        } else {
-                             cssClass = "bg-gray-100 border-gray-200 opacity-75";
-                             content = `<div class="text-gray-500 font-bold">En espera...</div>`;
-                        }
-                    } else if (booking.status === 'rejected') {
-                        content = `<div class="text-green-600 font-bold">Disponible</div>`;
-                        action = createRequestButton(hour);
+                days.forEach(day => {
+                    const slotId = formatReservationId(day, hour);
+                    const slotEl = document.createElement('div');
+                    slotEl.className = 'time-slot slot-free text-center';
+                    slotEl.dataset.slotId = slotId;
+                    slotEl.dataset.date = day.toISOString().split('T')[0];
+                    slotEl.dataset.hour = hour;
+                    slotEl.textContent = 'Libre';
+                    
+                    const slotDateHour = new Date(day.toISOString().split('T')[0] + 'T' + hour + ':00');
+                    
+                    // Deshabilitar slots pasados
+                    if (slotDateHour < new Date()) {
+                        slotEl.textContent = 'Pasado';
+                        slotEl.classList.remove('slot-free', 'cursor-pointer');
+                        slotEl.classList.add('bg-gray-200', 'text-gray-500', 'cursor-not-allowed');
+                        slotEl.onclick = null;
+                    } else {
+                         slotEl.onclick = () => handleSlotSelection(slotEl, day, hour);
                     }
-                } else {
-                    content = `<div class="text-green-600 font-bold">Disponible</div>`;
-                    action = createRequestButton(hour);
+
+                    calendarEl.appendChild(slotEl);
+                });
+            });
+
+            // 3. Actualizar la vista con las reservas
+            updateCalendarView();
+            
+            // 4. Actualizar el rango de la semana
+            const firstDay = days[0].toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
+            const lastDay = days[days.length - 1].toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
+            document.getElementById('week-display').textContent = `Semana: ${firstDay} - ${lastDay}`;
+
+        }
+        
+        // Actualiza el calendario y la lista del admin
+        function updateCalendarView() {
+            document.getElementById('requests-list').innerHTML = ''; // Limpiar lista de Admin
+            let hasPendingRequests = false;
+            
+            const now = new Date();
+
+            const activeReservations = reservations.filter(res => res.status === 'pending' || res.status === 'approved');
+
+            activeReservations.forEach(res => {
+                const slotEl = document.querySelector(`[data-slot-id="${res.id}"]`);
+                
+                // Renderizado de Slots
+                if (slotEl) {
+                    slotEl.className = 'time-slot'; // Reset
+                    
+                    const slotDateHour = new Date(res.date + 'T' + res.hour + ':00');
+
+                    if (slotDateHour < now) {
+                        slotEl.textContent = 'Pasado';
+                        slotEl.classList.add('bg-gray-300', 'text-gray-600', 'cursor-not-allowed');
+                        slotEl.onclick = null;
+                    } else {
+                        switch (res.status) {
+                            case 'approved':
+                                slotEl.innerHTML = `<span class="font-bold">${res.group}</span><span class="text-xs">Reservado</span>`;
+                                slotEl.classList.add('slot-approved', 'cursor-not-allowed');
+                                slotEl.onclick = null;
+                                break;
+                            case 'pending':
+                                slotEl.innerHTML = `<span class="font-bold">${res.group}</span><span class="text-xs">Pendiente</span>`;
+                                slotEl.classList.add('slot-pending');
+                                if (userRole === 'student' && res.representative === currentRepName) {
+                                     slotEl.classList.add('cursor-pointer');
+                                     slotEl.onclick = () => handleSlotSelection(slotEl, new Date(res.date), res.hour);
+                                } else {
+                                     slotEl.classList.add('cursor-not-allowed');
+                                     slotEl.onclick = null;
+                                }
+                                break;
+                        }
+                    }
                 }
 
-                card.className = `p-4 rounded-lg border-2 shadow-sm flex flex-col justify-between items-center text-center transition hover:shadow-md ${cssClass}`;
-                card.innerHTML = `
-                    <div class="text-lg font-semibold text-gray-700 mb-2">${timeLabel}</div>
-                    ${content}
-                    ${action}
-                `;
-                container.appendChild(card);
+                // Renderizado de Peticiones del Admin
+                if (userRole === 'admin' && res.status === 'pending') {
+                    renderAdminRequest(res);
+                    hasPendingRequests = true;
+                }
             });
-        }
-
-        function createRequestButton(hour) {
-            return `<button onclick="requestSlot(${hour})" class="mt-2 w-full bg-blue-600 text-white text-sm py-1.5 rounded hover:bg-blue-700 transition">Solicitar</button>`;
-        }
-
-        window.requestSlot = async (hour) => {
-             // Reemplazamos alert/confirm con un mensaje en consola
-             console.info(`Solicitando turno para ${hour}:00`);
-
-            try {
-                await addDoc(collection(db, COLLECTION_NAME), {
-                    date: selectedDate,
-                    hour: hour,
-                    groupName: currentGroup,
-                    repName: currentRepName,
-                    userId: currentUser.uid,
-                    status: 'pending',
-                    createdAt: serverTimestamp()
-                });
-            } catch (error) {
-                console.error("Error al guardar la solicitud:", error);
+            
+            if (userRole === 'admin' && !hasPendingRequests) {
+                 document.getElementById('requests-list').innerHTML = '<p class="text-gray-500">No hay solicitudes pendientes de aprobación.</p>';
             }
-        };
+        }
+        
+        function renderAdminRequest(request) {
+            const listEl = document.getElementById('requests-list');
+            const requestEl = document.createElement('div');
+            
+            const dateStr = new Date(request.date).toLocaleDateString('es-ES', { month: 'long', day: 'numeric' });
+            
+            requestEl.className = 'p-4 border border-yellow-300 bg-yellow-50 rounded-lg shadow-sm flex justify-between items-center flex-wrap gap-2';
+            
+            requestEl.innerHTML = `
+                <div class="flex-grow">
+                    <p class="font-bold text-lg text-gray-800">${request.group}</p>
+                    <p class="text-sm text-gray-600">Líder: ${request.representative}</p>
+                    <p class="text-md font-medium text-indigo-600">${dateStr} a las ${request.hour}</p>
+                </div>
+                <div class="space-x-2 flex-shrink-0">
+                    <button onclick="updateRequestStatus('${request.id}', 'approved')" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition">Aprobar</button>
+                    <button onclick="updateRequestStatus('${request.id}', 'rejected')" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition">Rechazar</button>
+                </div>
+            `;
+            listEl.appendChild(requestEl);
+        }
 
-        // --- LÓGICA DE ADMINISTRADOR ---
+        function handleSlotSelection(slotEl, date, hour) {
+            const currentSelected = document.querySelector('.slot-selected');
+            if (currentSelected) {
+                currentSelected.classList.remove('slot-selected');
+            }
 
-        function loadAdminView() {
-             // Importante: No usar orderBy() sin un índice de Firebase. Ordenamos en JS.
-            const q = query(
-                collection(db, COLLECTION_NAME)
-            );
+            // Forzar la fecha a Objeto Date si viene de 'res.date'
+            const slotDate = new Date(date);
+            const dateISO = slotDate.toISOString().split('T')[0];
+            
+            slotEl.classList.add('slot-selected');
+            selectedDate = dateISO;
+            selectedHour = hour;
 
-            onSnapshot(q, (snapshot) => {
-                const bookingsArray = [];
-                snapshot.forEach(docSnap => {
-                    bookingsArray.push(createRequestRow(docSnap.id, docSnap.data()));
-                });
-                
-                // Ordenar por fecha de creación (más reciente primero) en el cliente
-                bookingsArray.sort((a, b) => b.data.createdAt?.toMillis() - a.data.createdAt?.toMillis());
-                
-                const listContainer = document.getElementById('requests-list');
-                listContainer.innerHTML = '';
-                
-                if (bookingsArray.length === 0) {
-                    listContainer.innerHTML = '<div class="text-center text-gray-500 py-8">No hay solicitudes registradas.</div>';
+            const slotReservation = reservations.find(r => r.id === formatReservationId(slotDate, hour) && r.status === 'pending' && r.group === currentGroup);
+            const dayStr = slotDate.toLocaleDateString('es-ES', { weekday: 'long', month: 'long', day: 'numeric' });
+
+            if (slotReservation) {
+                 // Si es mi solicitud pendiente
+                document.getElementById('selected-slot-display').innerHTML = `
+                    <span class="font-bold">Anular Solicitud:</span> Ya solicitaste el turno el ${dayStr} a las ${hour}.
+                `;
+                document.getElementById('request-button').disabled = false;
+                document.getElementById('request-button').textContent = 'Anular mi Solicitud';
+            } else {
+                 // Si es un slot libre
+                document.getElementById('selected-slot-display').innerHTML = `
+                    <span class="font-bold">Turno Seleccionado:</span> ${dayStr} a las ${hour}
+                `;
+                document.getElementById('request-button').disabled = false;
+                document.getElementById('request-button').textContent = 'Enviar Solicitud de Reserva';
+            }
+        }
+        
+        window.submitRequest = async () => {
+            if (!selectedDate || !selectedHour) return;
+
+            const slotId = formatReservationId(new Date(selectedDate), selectedHour);
+            const slotEl = document.querySelector(`[data-slot-id="${slotId}"]`);
+            const slotReservation = reservations.find(r => r.id === slotId && r.representative === currentRepName);
+
+            if (slotReservation && slotReservation.status === 'pending') {
+                // Lógica para ANULAR (cambiar a rechazado/libre)
+                if (!window.confirm("¿Estás seguro de que quieres anular tu solicitud de turno?")) { return; }
+                const docRef = doc(db, COLLECTION_PATH, slotId);
+                // Marcamos como 'rejected' para que se vuelva a renderizar como 'Libre'
+                await setDoc(docRef, { status: 'rejected', group: null, representative: null }, { merge: true }); 
+                showMessage("Solicitud anulada con éxito.", 'success');
+            } else {
+                // Lógica para ENVIAR una nueva solicitud
+                const existingReservation = reservations.find(r => r.id === slotId && (r.status === 'approved' || r.status === 'pending'));
+                if (existingReservation) {
+                    showMessage("Error: Este turno ya está reservado o en proceso de aprobación por otro grupo.", 'error');
                     return;
                 }
 
-                bookingsArray.forEach(row => listContainer.appendChild(row));
-            }, (error) => {
-                 console.error("Error al escuchar solicitudes del administrador:", error);
-            });
-        }
+                const reservationData = {
+                    id: slotId,
+                    date: selectedDate,
+                    hour: selectedHour,
+                    group: currentGroup,
+                    representative: currentRepName, // Email del líder
+                    status: 'pending',
+                    timestamp: serverTimestamp(),
+                };
 
-        function createRequestRow(id, data) {
-            const div = document.createElement('div');
-            div.className = "bg-white p-4 rounded-lg shadow mb-3 border-l-4 flex flex-col md:flex-row justify-between items-center";
-            
-            let statusColor = 'border-gray-300';
-            let statusText = '';
-
-            if(data.status === 'pending') {
-                 statusColor = 'border-yellow-400';
-                 statusText = 'Pendiente';
-            } else if(data.status === 'approved') {
-                 statusColor = 'border-green-500';
-                 statusText = 'Aprobada';
-            } else if(data.status === 'rejected') {
-                 statusColor = 'border-red-500';
-                 statusText = 'Rechazada';
+                try {
+                    const docRef = doc(db, COLLECTION_PATH, slotId);
+                    await setDoc(docRef, reservationData);
+                    showMessage(`Solicitud enviada para el grupo ${currentGroup}. Esperando aprobación.`, 'success');
+                } catch (e) {
+                    console.error("Error al enviar la solicitud:", e);
+                    showMessage("Error al guardar la solicitud en la base de datos.", 'error');
+                }
             }
+
+            // Limpiar selección
+            selectedDate = null;
+            selectedHour = null;
+            if (slotEl) slotEl.classList.remove('slot-selected');
+            document.getElementById('request-button').disabled = true;
+            document.getElementById('selected-slot-display').textContent = 'Selecciona un horario libre en el calendario para solicitar un turno.';
+        };
+        
+        window.updateRequestStatus = async (slotId, newStatus) => {
+            if (userRole !== 'admin') { return; }
+
+            const docRef = doc(db, COLLECTION_PATH, slotId);
             
-            div.classList.add(statusColor);
-
-            const actions = data.status === 'pending' ? `
-                <div class="flex gap-2 mt-2 md:mt-0">
-                    <button onclick="updateStatus('${id}', 'approved')" class="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 shadow">Aceptar</button>
-                    <button onclick="updateStatus('${id}', 'rejected')" class="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 shadow">Rechazar</button>
-                </div>
-            ` : `<span class="text-xs uppercase font-bold text-gray-400 mt-2 md:mt-0">${statusText}</span>`;
-            
-            // Función auxiliar para formatear la fecha/hora
-            const formatTime = (timestamp) => {
-                 if (timestamp && timestamp.toDate) {
-                    const date = timestamp.toDate();
-                    return date.toLocaleDateString('es-ES', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-                 }
-                 return 'Sin fecha';
-            };
-
-
-            div.innerHTML = `
-                <div class="text-left w-full md:w-auto">
-                    <div class="font-bold text-gray-800">${data.groupName}</div>
-                    <div class="text-sm text-gray-600">
-                        <i class="fas fa-user"></i> ${data.repName} | 
-                        <i class="fas fa-calendar"></i> ${data.date} | 
-                        <i class="fas fa-clock"></i> ${data.hour}:00
-                    </div>
-                    <div class="text-xs text-gray-400">Solicitado: ${formatTime(data.createdAt)}</div>
-                </div>
-                ${actions}
-            `;
-            // Adjuntamos los datos originales para la función de ordenamiento
-            div.data = data; 
-            return div;
-        }
-
-        window.updateStatus = async (docId, newStatus) => {
             try {
-                const ref = doc(db, COLLECTION_NAME, docId);
-                await updateDoc(ref, { status: newStatus });
+                if (newStatus === 'rejected') {
+                    await setDoc(docRef, { status: 'rejected', group: null, representative: null, timestamp: serverTimestamp() }, { merge: true });
+                    showMessage(`Solicitud ${slotId.split('_')[0]} ha sido RECHAZADA.`, 'info');
+                } else if (newStatus === 'approved') {
+                    // Chequeo de colisión en el Admin antes de aprobar
+                    const currentRes = reservations.find(r => r.id === slotId);
+                    if (currentRes && currentRes.status === 'approved') {
+                         showMessage("Error: El turno ya fue aprobado por otro admin.", 'error');
+                         return;
+                    }
+
+                    // Aprobar la reserva
+                    await setDoc(docRef, { status: 'approved', timestamp: serverTimestamp() }, { merge: true });
+                    showMessage(`Solicitud ${slotId.split('_')[0]} ha sido APROBADA.`, 'success');
+                }
+
             } catch (e) {
-                console.error("Error actualizando estado:", e);
+                console.error(`Error al actualizar el estado a ${newStatus}:`, e);
+                showMessage("Error al actualizar la base de datos.", 'error');
             }
         };
 
-        // Control visual del formulario login
-        document.getElementById('login-role').addEventListener('change', (e) => {
-            const isStudent = e.target.value === 'student';
-            const studentFields = document.getElementById('student-fields');
-            const adminFields = document.getElementById('admin-fields');
-            
-            if (studentFields) studentFields.style.display = isStudent ? 'block' : 'none';
-            if (adminFields) adminFields.style.display = isStudent ? 'none' : 'block';
-        });
+        window.changeWeek = (offset) => {
+            currentWeekOffset += offset;
+            renderCalendar();
+        };
 
     </script>
-</head>
-<body class="bg-gray-100 min-h-screen">
-
-    <!-- VISTA LOGIN -->
-    <div id="login-view" class="min-h-screen flex items-center justify-center px-4">
-        <div class="max-w-md w-full bg-white rounded-xl shadow-xl overflow-hidden fade-in">
-            <div class="bg-blue-900 p-6 text-center">
-                <i class="fas fa-network-wired text-4xl text-white mb-3"></i>
-                <h1 class="text-2xl font-bold text-white">Lab de Redes</h1>
-                <p class="text-blue-200 text-sm">Gestión de Turnos</p>
-            </div>
-            <form onsubmit="handleLogin(event)" class="p-8 space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">¿Quién eres?</label>
-                    <select id="login-role" class="w-full border p-2 rounded-lg">
-                        <option value="student">Jefe de Grupo</option>
-                        <option value="admin">Encargado (Admin)</option>
-                    </select>
-                </div>
-
-                <div id="student-fields" class="space-y-4">
-                    <input type="text" id="login-name" placeholder="Tu Nombre" class="w-full border p-2 rounded-lg" required>
-                    <input type="text" id="login-group" placeholder="Nombre del Grupo" class="w-full border p-2 rounded-lg" required>
-                </div>
-
-                <div id="admin-fields" class="hidden">
-                    <input type="password" id="login-pass" placeholder="Contraseña" class="w-full border p-2 rounded-lg" required>
-                </div>
-
-                <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg font-bold hover:bg-blue-700 shadow">Ingresar</button>
-            </form>
-        </div>
-    </div>
-
-    <!-- VISTA ESTUDIANTE -->
-    <div id="student-dashboard" class="hidden fade-in">
-        <nav class="bg-white shadow mb-6">
-            <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
-                <div class="flex items-center gap-3">
-                    <i class="fas fa-user-graduate text-blue-600 text-xl"></i>
-                    <div>
-                        <h2 class="font-bold">Panel de Estudiante</h2>
-                        <p id="student-name-display" class="text-xs text-gray-500">...</p>
-                    </div>
-                </div>
-                <button onclick="handleLogout()" class="text-gray-500 hover:text-red-600 text-sm"><i class="fas fa-sign-out-alt"></i> Salir</button>
-            </div>
-        </nav>
-
-        <main class="max-w-6xl mx-auto px-4 pb-10">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-xl font-bold">Seleccionar Turno</h3>
-                <input type="date" id="student-date" class="border p-2 rounded-lg">
-            </div>
-            <div id="slots-container" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
-        </main>
-    </div>
-
-    <!-- VISTA ADMIN -->
-    <div id="admin-dashboard" class="hidden fade-in">
-        <nav class="bg-gray-800 shadow mb-6">
-            <div class="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
-                <div class="flex items-center gap-3">
-                    <i class="fas fa-shield-alt text-yellow-400 text-xl"></i>
-                    <div class="text-white">
-                        <h2 class="font-bold">Panel de Administración</h2>
-                        <p id="admin-name-display" class="text-xs text-gray-400">...</p>
-                    </div>
-                </div>
-                <button onclick="handleLogout()" class="text-gray-300 hover:text-white text-sm"><i class="fas fa-sign-out-alt"></i> Salir</button>
-            </div>
-        </nav>
-
-        <main class="max-w-4xl mx-auto px-4 pb-10">
-            <h3 class="text-xl font-bold mb-4">Solicitudes Recientes</h3>
-            <div id="requests-list"></div>
-        </main>
-    </div>
-
 </body>
 </html>
