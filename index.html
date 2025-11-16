@@ -33,6 +33,7 @@
         }
         
         /* Estilos de Slots */
+        .slot-disabled { background-color: #e5e7eb; color: #9ca3af; cursor: not-allowed; } /* NUEVO: Para horas no habilitadas por el admin */
         .slot-free { background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
         .slot-free:hover { background-color: #a7f3d0; }
         .slot-pending { background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
@@ -74,6 +75,14 @@
             cursor: not-allowed;
             box-shadow: none;
         }
+        
+        /* Estilos para los Toggles del Admin */
+        .switch { position: relative; display: inline-block; width: 50px; height: 28px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 28px; }
+        .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #4f46e5; }
+        input:checked + .slider:before { transform: translateX(22px); }
     </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-4">
@@ -124,18 +133,42 @@
             </header>
             
             <!-- Contenido del Panel: Administrador -->
-            <div id="admin-panel" class="hidden card mt-4">
-                <h2 class="text-2xl font-semibold mb-4 text-gray-700">Gestión de Solicitudes Pendientes</h2>
-                <div id="requests-list" class="space-y-4">
-                    <p class="text-gray-500">Cargando solicitudes...</p>
+            <div id="admin-panel" class="hidden card mt-4 space-y-8">
+                <div>
+                    <h2 class="text-2xl font-semibold mb-4 text-gray-700">Gestión de Solicitudes Pendientes</h2>
+                    <div id="requests-list" class="space-y-4">
+                        <p class="text-gray-500">Cargando solicitudes...</p>
+                    </div>
+                </div>
+                
+                <!-- NUEVO PANEL DE CONFIGURACIÓN DE HORARIO -->
+                <div>
+                    <h2 class="text-2xl font-semibold mb-4 text-gray-700">Configuración de Horario Habilitado</h2>
+                    <p class="text-sm text-gray-500 mb-4">Habilita o deshabilita las horas de inicio de turno para todos los días. Los estudiantes solo podrán reservar en horas habilitadas.</p>
+                    <div id="admin-schedule-config" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        <!-- Generado por JS -->
+                    </div>
+                    <button onclick="saveScheduleConfig()" class="btn-primary mt-6">
+                        Guardar Horario
+                    </button>
                 </div>
             </div>
 
             <!-- Contenido del Panel: Estudiante -->
             <div id="student-panel" class="hidden mt-4">
                 <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-2xl font-semibold text-gray-700">Reservar Turno de Laboratorio (13:00 - 20:00)</h2>
-                     <span id="week-display" class="font-bold text-lg text-gray-700">Semana Actual</span>
+                    <h2 class="text-2xl font-semibold text-gray-700">Reservar Turno (Lun-Vie)</h2>
+                    
+                    <!-- BOTONES DE SEMANA (REACTIVADOS) -->
+                    <div class="flex items-center space-x-2">
+                        <button onclick="changeWeek(-1)" class="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition duration-150">
+                            &lt; Semana Ant.
+                        </button>
+                        <span id="week-display" class="font-bold text-lg text-gray-700 text-center w-48"></span>
+                        <button onclick="changeWeek(1)" class="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition duration-150">
+                            Semana Sig. &gt;
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Calendario de Turnos -->
@@ -204,10 +237,12 @@
         let currentRepName = null;
         let reservations = []; // Caché local de reservas
         let authReady = false;
+        let selectedSlots = []; // Para selección múltiple
+        let currentWeekOffset = 0; // Para navegación de semana
         
-        // --- NUEVO ESTADO PARA SELECCIÓN MÚLTIPLE ---
-        let selectedSlots = []; // Almacena {id, date, hour}
-
+        // --- NUEVO ESTADO PARA HORARIO CONFIGURABLE ---
+        let availableHoursConfig = []; // Horas habilitadas por el admin
+        
         // --- CONSTANTES DE AUTENTICACIÓN FIJAS ---
         const GRUPO_LIDERES = {
             "lider1@uni.edu": "Grupo Redes A",
@@ -226,24 +261,32 @@
         const ADMIN_PASS = 'adminpass'; 
 
         // --- CONSTANTES DEL CALENDARIO (MODIFICADAS) ---
-        // Array de objetos para la columna de horas
+        // Array de objetos para la columna de horas (7am - 7pm)
         const HOUR_SLOTS = [
+            { label: '07:00 - 08:00', data: '07:00' },
+            { label: '08:00 - 09:00', data: '08:00' },
+            { label: '09:00 - 10:00', data: '09:00' },
+            { label: '10:00 - 11:00', data: '10:00' },
+            { label: '11:00 - 12:00', data: '11:00' },
+            { label: '12:00 - 13:00', data: '12:00' },
             { label: '13:00 - 14:00', data: '13:00' },
             { label: '14:00 - 15:00', data: '14:00' },
             { label: '15:00 - 16:00', data: '15:00' },
             { label: '16:00 - 17:00', data: '16:00' },
             { label: '17:00 - 18:00', data: '17:00' },
             { label: '18:00 - 19:00', data: '18:00' },
-            { label: '19:00 - 20:00', data: '19:00' },
-            { label: '20:00 - 21:00', data: '20:00' } // Nota: La lógica de horas se basa en la hora de inicio (20:00)
+            { label: '19:00 - 20:00', data: '19:00' } 
         ];
         
+        // Rutas de la Base de Datos
         const COLLECTION_PATH = `artifacts/${appId}/public/data/reservations`;
+        const SCHEDULE_CONFIG_PATH = `artifacts/${appId}/public/data/scheduleConfig`;
 
         // --- UTILIDADES ---
 
         function showMessage(message, type) {
             const box = document.getElementById('message-box');
+            if (!box) return; // Salir si el DOM no está listo
             box.innerText = message;
             box.className = 'mb-4 p-3 rounded-lg text-sm';
             box.classList.remove('hidden');
@@ -259,27 +302,27 @@
         }
 
         function hideMessage() {
-            document.getElementById('message-box').classList.add('hidden');
+            const box = document.getElementById('message-box');
+            if (box) box.classList.add('hidden');
         }
 
         function formatReservationId(date, hour) {
             const yyyy = date.getFullYear();
             const mm = String(date.getMonth() + 1).padStart(2, '0');
             const dd = String(date.getDate()).padStart(2, '0');
-            // Usamos la hora de inicio (ej: 13:00) para el ID
             return `${yyyy}-${mm}-${dd}_${hour.replace(':', '-')}`;
         }
 
         // --- LÓGICA DE CALENDARIO (MODIFICADA) ---
 
-        // Devuelve 5 días (Lun-Vie) de la semana actual
-        function getWeekDays() {
+        // Devuelve 5 días (Lun-Vie) de la semana (con offset)
+        function getWeekDays(offset) {
             const days = [];
             const today = new Date();
             const dayOfWeek = today.getDay(); 
             const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Lunes = 1, Domingo = 0
             
-            today.setDate(today.getDate() + diff); // Ir a Lunes
+            today.setDate(today.getDate() + diff + (offset * 7)); // Ir a Lunes de la semana seleccionada
 
             for (let i = 0; i < 5; i++) { // Bucle de 5 días
                 const date = new Date(today);
@@ -289,9 +332,10 @@
             return days;
         }
         
-        // --- MANEJO DE VISTAS Y AUTENTICACIÓN (Sin cambios mayores) ---
+        // --- MANEJO DE VISTAS Y AUTENTICACIÓN ---
 
         function renderSystemView() {
+            // ... (Función sin cambios, se omite por brevedad) ...
             const loginView = document.getElementById('login-view');
             const systemView = document.getElementById('system-view');
             const adminPanel = document.getElementById('admin-panel');
@@ -309,6 +353,7 @@
                 adminPanel.classList.remove('hidden');
                 studentPanel.classList.add('hidden');
                 updateCalendarView(); 
+                renderAdminScheduleConfig(); // <--- NUEVO: Renderizar panel de config
             } else {
                 adminPanel.classList.add('hidden');
                 studentPanel.classList.remove('hidden');
@@ -317,6 +362,7 @@
         }
 
         window.handleLogin = async (e) => {
+            // ... (Función sin cambios, se omite por brevedad) ...
             e.preventDefault();
             const role = document.getElementById('login-role').value;
             const email = document.getElementById('login-email').value.trim();
@@ -379,9 +425,11 @@
         onAuthStateChanged(auth, (user) => {
             if (!authReady) {
                 authReady = true;
-                initializeDatabaseListener();
+                // Inicializar AMBOS listeners
+                initializeReservationListener();
+                initializeScheduleListener(); // <--- NUEVO
             }
-
+            // ... (lógica de vistas sin cambios) ...
             const loginView = document.getElementById('login-view');
             const systemView = document.getElementById('system-view');
 
@@ -416,9 +464,9 @@
 
         // --- LÓGICA DEL SISTEMA (CALENDARIO Y RESERVAS) ---
 
-        function initializeDatabaseListener() {
+        // Listener para RESERVAS
+        function initializeReservationListener() {
             if (!authReady) return; 
-
             const q = collection(db, COLLECTION_PATH);
             
             onSnapshot(q, (snapshot) => {
@@ -428,31 +476,54 @@
                 });
                 
                 if (document.getElementById('login-view').classList.contains('hidden')) {
-                    if (userRole === 'student') {
-                        renderCalendar();
-                    } else if (userRole === 'admin') {
-                        updateCalendarView();
-                    }
+                    if (userRole === 'student') renderCalendar();
+                    else if (userRole === 'admin') updateCalendarView();
                 }
             }, (error) => {
-                console.error("Error al escuchar la base de datos:", error);
+                console.error("Error al escuchar (reservations):", error);
                 if (!document.getElementById('login-view').classList.contains('hidden')) {
                      showMessage("Error al cargar la base de datos de turnos.", 'error');
                 }
             });
         }
+        
+        // --- NUEVO LISTENER para CONFIGURACIÓN DE HORARIO ---
+        function initializeScheduleListener() {
+            if (!authReady) return;
+            const configDocRef = doc(db, SCHEDULE_CONFIG_PATH, 'global');
+            
+            onSnapshot(configDocRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    availableHoursConfig = docSnap.data().enabledHours || [];
+                } else {
+                    // Si el documento no existe, se asume un horario por defecto (7am-8pm)
+                    availableHoursConfig = HOUR_SLOTS.map(h => h.data);
+                    console.warn("No se encontró 'scheduleConfig/global'. Usando horario por defecto.");
+                }
+                
+                // Re-renderizar la vista actual si ya estamos logueados
+                if (document.getElementById('login-view').classList.contains('hidden')) {
+                    if (userRole === 'student') renderCalendar();
+                    else if (userRole === 'admin') renderAdminScheduleConfig();
+                }
+            }, (error) => {
+                console.error("Error al escuchar (scheduleConfig):", error);
+                showMessage("Error al cargar la configuración del horario.", 'error');
+            });
+        }
+
 
         // --- RENDERIZADO DEL CALENDARIO (MODIFICADO) ---
         function renderCalendar() {
             const calendarEl = document.getElementById('calendar');
             calendarEl.innerHTML = '';
             
-            const days = getWeekDays(); // Solo 5 días, sin offset
+            const days = getWeekDays(currentWeekOffset); // <--- USA OFFSET
             
-            // 1. Cabecera de Días (Corregida)
+            // 1. Cabecera de Días
             const corner = document.createElement('div');
             corner.className = 'slot-header text-center';
-            corner.textContent = 'Hora'; // Arregla la esquina desconfigurada
+            corner.textContent = 'Hora';
             calendarEl.appendChild(corner);
             
             days.forEach(day => {
@@ -462,34 +533,40 @@
                 calendarEl.appendChild(dayHeader);
             });
 
-            // 2. Slots por Hora (Usando HOUR_SLOTS)
+            // 2. Slots por Hora
             HOUR_SLOTS.forEach(slot => {
                 const hourHeader = document.createElement('div');
                 hourHeader.className = 'slot-header';
-                hourHeader.textContent = slot.label; // Ej: "13:00 - 14:00"
+                hourHeader.textContent = slot.label; 
                 calendarEl.appendChild(hourHeader);
 
                 days.forEach(day => {
-                    const hour = slot.data; // Ej: "13:00"
+                    const hour = slot.data; 
                     const slotId = formatReservationId(day, hour);
                     const slotEl = document.createElement('div');
-                    slotEl.className = 'time-slot slot-free text-center';
                     slotEl.dataset.slotId = slotId;
                     slotEl.dataset.date = day.toISOString().split('T')[0];
                     slotEl.dataset.hour = hour;
-                    slotEl.textContent = 'Libre';
                     
                     const slotDateHour = new Date(day.toISOString().split('T')[0] + 'T' + hour + ':00');
                     
+                    // LÓGICA DE RENDERIZADO (Prioridad)
                     if (slotDateHour < new Date()) {
+                        // 1. Pasado
                         slotEl.textContent = 'Pasado';
-                        slotEl.classList.remove('slot-free', 'cursor-pointer');
-                        slotEl.classList.add('bg-gray-200', 'text-gray-500', 'cursor-not-allowed');
+                        slotEl.className = 'time-slot bg-gray-200 text-gray-500 cursor-not-allowed';
+                        slotEl.onclick = null;
+                    } else if (!availableHoursConfig.includes(hour)) {
+                        // 2. No Habilitado por Admin
+                        slotEl.textContent = 'No disponible';
+                        slotEl.className = 'time-slot slot-disabled';
                         slotEl.onclick = null;
                     } else {
-                         slotEl.onclick = () => handleSlotSelection(slotEl, day, hour);
+                        // 3. Habilitado (puede estar Libre, Pendiente o Aprobado)
+                        slotEl.className = 'time-slot slot-free text-center';
+                        slotEl.textContent = 'Libre';
+                        slotEl.onclick = () => handleSlotSelection(slotEl, day, hour);
                     }
-
                     calendarEl.appendChild(slotEl);
                 });
             });
@@ -497,10 +574,12 @@
             // 3. Actualizar la vista con las reservas
             updateCalendarView();
             
-            // 4. Actualizar el rango de la semana (Opcional, ya no se cambia)
-            document.getElementById('week-display').textContent = `Semana Actual (Lun - Vie)`;
+            // 4. Actualizar el rango de la semana
+            const firstDay = days[0].toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
+            const lastDay = days[days.length - 1].toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
+            document.getElementById('week-display').textContent = `${firstDay} - ${lastDay}`;
             
-            // 5. Limpiar selección múltiple al re-renderizar
+            // 5. Limpiar selección múltiple
             selectedSlots = [];
             updateSelectionBox();
         }
@@ -519,14 +598,9 @@
                 const slotEl = document.querySelector(`[data-slot-id="${res.id}"]`);
                 
                 if (slotEl) {
-                    slotEl.className = 'time-slot'; // Reset
-                    const slotDateHour = new Date(res.date + 'T' + res.hour + ':00');
-
-                    if (slotDateHour < now) {
-                        slotEl.textContent = 'Pasado';
-                        slotEl.classList.add('bg-gray-300', 'text-gray-600', 'cursor-not-allowed');
-                        slotEl.onclick = null;
-                    } else {
+                    // Solo modificar si NO es 'Pasado' o 'No disponible'
+                    if (slotEl.classList.contains('slot-free') || slotEl.classList.contains('slot-pending')) {
+                        slotEl.className = 'time-slot'; // Reset
                         switch (res.status) {
                             case 'approved':
                                 slotEl.innerHTML = `<span class="font-bold">${res.group}</span><span class="text-xs">Reservado</span>`;
@@ -536,10 +610,8 @@
                             case 'pending':
                                 slotEl.innerHTML = `<span class="font-bold">${res.group}</span><span class="text-xs">Pendiente</span>`;
                                 slotEl.classList.add('slot-pending');
-                                // Si es MI solicitud pendiente (Estudiante)
                                 if (userRole === 'student' && res.representative === currentRepName) {
                                      slotEl.classList.add('cursor-pointer');
-                                     // Al hacer clic en una pendiente mía, se ANULA
                                      slotEl.onclick = () => anularSlot(res.id); 
                                 } else {
                                      slotEl.classList.add('cursor-not-allowed');
@@ -563,6 +635,7 @@
         }
         
         function renderAdminRequest(request) {
+            // ... (Función sin cambios, se omite por brevedad) ...
             const listEl = document.getElementById('requests-list');
             const requestEl = document.createElement('div');
             const dateStr = new Date(request.date).toLocaleDateString('es-ES', { month: 'long', day: 'numeric' });
@@ -588,19 +661,17 @@
             const slotId = formatReservationId(date, hour);
             const dateISO = date.toISOString().split('T')[0];
             
-            // Verificar si el slot es 'Libre' (requisito para seleccionar)
+            // RE-VERIFICAR si el slot es 'Libre' (requisito para seleccionar)
             if (!slotEl.classList.contains('slot-free')) {
-                return; // No hacer nada si está pendiente o aprobado
+                return; // No hacer nada si está pendiente, aprobado, o deshabilitado
             }
 
             const index = selectedSlots.findIndex(slot => slot.id === slotId);
 
             if (index > -1) {
-                // Si ya está seleccionado, quitarlo
                 selectedSlots.splice(index, 1);
                 slotEl.classList.remove('slot-selected');
             } else {
-                // Si no está seleccionado, agregarlo
                 selectedSlots.push({ id: slotId, date: dateISO, hour: hour });
                 slotEl.classList.add('slot-selected');
             }
@@ -608,15 +679,12 @@
             updateSelectionBox();
         }
 
-        // Función para anular una solicitud PENDIENTE (clic directo)
         async function anularSlot(slotId) {
+             // ... (Función sin cambios, se omite por brevedad) ...
              if (userRole !== 'student') return;
-             
              if (!window.confirm("¿Estás seguro de que quieres anular tu solicitud de turno pendiente?")) { return; }
-             
              const docRef = doc(db, COLLECTION_PATH, slotId);
              try {
-                // Marcamos como 'rejected' para que se vuelva a renderizar como 'Libre'
                 await setDoc(docRef, { status: 'rejected', group: null, representative: null }, { merge: true }); 
                 showMessage("Solicitud anulada con éxito.", 'success');
              } catch (e) {
@@ -625,8 +693,8 @@
              }
         }
         
-        // Actualiza el cuadro de resumen de la selección múltiple
         function updateSelectionBox() {
+            // ... (Función sin cambios, se omite por brevedad) ...
             const display = document.getElementById('selected-slot-display');
             const button = document.getElementById('request-button');
             
@@ -647,84 +715,118 @@
             }
         }
         
-        // --- LÓGICA DE ENVÍO Y ACTUALIZACIÓN (MODIFICADA) ---
+        // --- LÓGICA DE ENVÍO Y ACTUALIZACIÓN ---
         
         window.submitRequest = async () => {
+            // ... (Función sin cambios, se omite por brevedad) ...
             if (selectedSlots.length === 0) {
                 showMessage("No has seleccionado ningún turno.", 'error');
                 return;
             }
-
             if (!window.confirm(`¿Estás seguro de que quieres enviar ${selectedSlots.length} solicitudes de turno?`)) {
                 return;
             }
-
-            // Usamos un 'batch' de Firestore para enviar todas las solicitudes juntas
             const batch = writeBatch(db);
-
             try {
                 for (const slot of selectedSlots) {
                     const slotId = slot.id;
                     const docRef = doc(db, COLLECTION_PATH, slotId);
-
                     const reservationData = {
                         id: slotId,
                         date: slot.date,
                         hour: slot.hour,
                         group: currentGroup,
-                        representative: currentRepName, // Email del líder
+                        representative: currentRepName,
                         status: 'pending',
                         timestamp: serverTimestamp(),
                     };
-                    
-                    batch.set(docRef, reservationData); // Usamos set() para asegurar que sobrescriba
+                    batch.set(docRef, reservationData);
                 }
-                
-                // Enviamos el lote
                 await batch.commit();
-
                 showMessage(`¡${selectedSlots.length} solicitudes enviadas con éxito! Esperando aprobación.`, 'success');
-                
             } catch (e) {
                 console.error("Error al enviar las solicitudes en lote:", e);
                 showMessage("Error al guardar las solicitudes en la base de datos.", 'error');
             }
-
-            // Limpiar selección después de enviar
-            renderCalendar(); // Re-renderizar el calendario limpiará la selección
+            renderCalendar(); 
         };
         
         window.updateRequestStatus = async (slotId, newStatus) => {
+            // ... (Función sin cambios, se omite por brevedad) ...
             if (userRole !== 'admin') { return; }
-
             const docRef = doc(db, COLLECTION_PATH, slotId);
-            
             try {
                 if (newStatus === 'rejected') {
                     await setDoc(docRef, { status: 'rejected', group: null, representative: null, timestamp: serverTimestamp() }, { merge: true });
                     showMessage(`Solicitud ${slotId.split('_')[0]} ha sido RECHAZADA.`, 'info');
                 } else if (newStatus === 'approved') {
-                    // Chequeo de colisión en el Admin antes de aprobar
                     const currentRes = reservations.find(r => r.id === slotId);
                     if (currentRes && currentRes.status === 'approved') {
                          showMessage("Error: El turno ya fue aprobado por otro admin.", 'error');
                          return;
                     }
-
-                    // Aprobar la reserva
                     await setDoc(docRef, { status: 'approved', timestamp: serverTimestamp() }, { merge: true });
                     showMessage(`Solicitud ${slotId.split('_')[0]} ha sido APROBADA.`, 'success');
                 }
-
             } catch (e) {
                 console.error(`Error al actualizar el estado a ${newStatus}:`, e);
                 showMessage("Error al actualizar la base de datos.", 'error');
             }
         };
 
-        // Ya no se usa, pero se mantiene la referencia por si se añade en el HTML
+        // --- FUNCIONES NUEVAS Y REACTIVADAS ---
+
+        // (REACTIVADA) Navegación de Semana
         window.changeWeek = (offset) => {
-            // Lógica de cambio de semana deshabilitada
+            currentWeekOffset += offset;
+            renderCalendar();
+        };
+
+        // (NUEVA) Renderiza los toggles para el Admin
+        function renderAdminScheduleConfig() {
+            const container = document.getElementById('admin-schedule-config');
+            container.innerHTML = '';
+            
+            HOUR_SLOTS.forEach(slot => {
+                const hour = slot.data;
+                const label = slot.label;
+                const isEnabled = availableHoursConfig.includes(hour);
+                
+                const toggleEl = document.createElement('div');
+                toggleEl.className = 'flex items-center justify-between p-3 bg-gray-100 rounded-lg';
+                toggleEl.innerHTML = `
+                    <span class="font-medium text-gray-700">${label}</span>
+                    <label class="switch">
+                        <input type="checkbox" data-hour="${hour}" ${isEnabled ? 'checked' : ''}>
+                        <span class="slider"></span>
+                    </label>
+                `;
+                container.appendChild(toggleEl);
+            });
+        }
+        
+        // (NUEVA) Guarda la configuración del Admin
+        window.saveScheduleConfig = async () => {
+            if (userRole !== 'admin') return;
+            
+            const newEnabledHours = [];
+            const toggles = document.querySelectorAll('#admin-schedule-config input[type="checkbox"]');
+            
+            toggles.forEach(toggle => {
+                if (toggle.checked) {
+                    newEnabledHours.push(toggle.dataset.hour);
+                }
+            });
+            
+            try {
+                const configDocRef = doc(db, SCHEDULE_CONFIG_PATH, 'global');
+                await setDoc(configDocRef, { enabledHours: newEnabledHours });
+                showMessage("Configuración de horario guardada con éxito.", 'success');
+                // El listener 'initializeScheduleListener' actualizará 'availableHoursConfig' automáticamente
+            } catch (e) {
+                console.error("Error al guardar la configuración:", e);
+                showMessage("Error al guardar la configuración de horario.", 'error');
+            }
         };
 
         window.toggleLoginFields = () => {
