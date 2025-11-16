@@ -2,19 +2,36 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale-1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Gestión de Turnos - Laboratorio de Redes</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        /* Estilos base, fuentes e interactividad mejorados */
-        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
-        .card { background: white; border-radius: 1rem; box-shadow: 0 10px 15px rgba(0, 0, 0, 0.05); padding: 1.5rem; }
+        /* --- ESTILOS PROFESIONALES (TEMÁTICA UCE/REDES) --- */
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #f3f4f6; /* Fondo gris claro */
+        }
+        .card { 
+            background: white; 
+            border-radius: 1rem; 
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.05); 
+            padding: 2rem; /* Más padding */
+        }
         
+        /* Nuevo Header Profesional */
+        .app-header {
+            background-color: #1e293b; /* bg-slate-800 */
+            color: white;
+            border-radius: 1rem;
+            padding: 1rem 1.5rem;
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+        }
+
         /* Cuadrícula de 6 columnas: 1 para Hora + 5 para Días (Lun-Vie) */
         .calendar-grid { 
             display: grid; 
-            grid-template-columns: 1.5fr repeat(5, 1fr); /* Columna de hora más ancha */
+            grid-template-columns: 1.5fr repeat(5, 1fr); 
             gap: 4px; 
             font-size: 0.8rem;
         }
@@ -28,15 +45,16 @@
             display: flex; 
             flex-direction: column; 
             justify-content: center; 
-            align-items: center; 
+            align: center; 
             line-height: 1.2;
-            border: 1px solid transparent; /* Borde base para consistencia */
+            border: 1px solid transparent; 
         }
         
-        /* Estilos de Slots base */
+        /* --- NUEVOS ESTILOS DE SLOTS --- */
         .slot-header { 
-            font-weight: bold; 
-            background-color: #e5e7eb; 
+            font-weight: 600; /* Más grueso */
+            background-color: #e5e7eb; /* Gris */
+            color: #374151; /* Texto oscuro */
             padding: 0.5rem; 
             border-radius: 0.5rem; 
             display: flex; 
@@ -44,20 +62,43 @@
             align-items: center; 
             height: 60px;
         }
-        .slot-disabled { background-color: #e5e7eb; color: #9ca3af; cursor: not-allowed; }
-        .slot-free { background-color: #d1fae5; color: #065f46; border-color: #a7f3d0; }
-        .slot-free:hover { background-color: #a7f3d0; }
         
-        /* Estilo de Selección Múltiple (para Admin y Estudiante) */
+        /* Slot de Horas Pasadas */
+        .slot-past {
+            background-color: #f3f4f6; /* Gris muy claro */
+            color: #9ca3af; /* Texto gris claro */
+            cursor: not-allowed;
+            border: 1px dashed #d1d5db;
+        }
+
+        /* Slot Bloqueado por Admin */
+        .slot-blocked {
+            background-color: #374151; /* Gris oscuro */
+            color: #d1d5db; /* Texto gris claro */
+            font-weight: 600;
+        }
+
+        /* Slot Libre (Blanco) */
+        .slot-free { 
+            background-color: #ffffff; 
+            color: #4b5563; /* Texto gris oscuro */
+            border: 1px solid #e5e7eb; /* Borde gris claro */
+        }
+        .slot-free:hover { 
+            background-color: #f9fafb; /* Gris hover */
+            border-color: #d1d5db;
+        }
+        
+        /* Selección Múltiple (Azul) */
         .slot-selected { 
-            background-color: #3b82f6 !important; /* Usar important para sobreescribir colores de grupo */
+            background-color: #2563eb !important; /* Azul (btn-primary) */
             color: white !important; 
             box-shadow: 0 4px 6px rgba(59, 130, 246, 0.5); 
             transform: scale(1.03); 
-            border-color: #3b82f6 !important;
+            border-color: #2563eb !important;
         }
         
-        /* Estilos de Botones */
+        /* --- NUEVOS ESTILOS DE BOTONES --- */
         .btn {
             padding: 0.5rem 1rem;
             border-radius: 0.5rem;
@@ -66,12 +107,12 @@
             cursor: pointer;
         }
         .btn-primary {
-            background-color: #4f46e5;
+            background-color: #2563eb; /* Azul (Redes/IT) */
             color: white;
-            box-shadow: 0 4px 6px rgba(79, 70, 229, 0.3);
+            box-shadow: 0 4px 6px rgba(37, 99, 235, 0.3);
         }
-        .btn-primary:hover { background-color: #4338ca; }
-        .btn-primary:disabled { background-color: #a5b4fc; cursor: not-allowed; box-shadow: none; }
+        .btn-primary:hover { background-color: #1d4ed8; }
+        .btn-primary:disabled { background-color: #93c5fd; cursor: not-allowed; box-shadow: none; }
         
         .btn-secondary { background-color: #e5e7eb; color: #374151; }
         .btn-secondary:hover { background-color: #d1d5db; }
@@ -80,53 +121,72 @@
         .btn-success:hover { background-color: #059669; }
         .btn-danger { background-color: #ef4444; color: white; }
         .btn-danger:hover { background-color: #dc2626; }
-
-
-        /* Clases de Color de Grupo (Generadas por JS) */
-        /* Ejemplo: .bg-red-200, .text-red-800, .border-red-300 */
     </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-4">
 
     <!-- Contenedor Principal -->
-    <div id="app-container" class="w-full max-w-6xl"> <!-- Aumentado a max-w-6xl -->
+    <div id="app-container" class="w-full max-w-6xl">
 
         <!-- Vista de Login -->
-        <div id="login-view" class="card max-w-lg mx-auto">
-            <h1 class="text-3xl font-bold mb-6 text-center text-gray-800">Acceso al Sistema de Turnos</h1>
+        <div id="login-view" class="max-w-lg mx-auto">
             
-            <div id="message-box" class="mb-4 hidden p-3 rounded-lg text-sm" role="alert"></div>
+            <!-- Encabezado de Marca UCE -->
+            <div class="flex flex-col items-center justify-center mb-8">
+                <!-- SVG Escudo -->
+                <svg class="h-16 w-16 text-blue-900 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" />
+                </svg>
+                <h1 class="text-2xl font-bold text-gray-800">Universidad Central del Ecuador</h1>
+                <p class="text-lg text-gray-500">Sistema de Gestión de Laboratorios</p>
+            </div>
+            
+            <div class="card">
+                <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">Acceso al Sistema</h2>
+                <div id="message-box" class="mb-4 hidden p-3 rounded-lg text-sm" role="alert"></div>
 
-            <form onsubmit="handleLogin(event)" class="space-y-4">
-                <input type="email" id="login-email" placeholder="Correo Electrónico (ej: lider1@uni.edu)" class="w-full border p-3 rounded-lg" required>
-                <input type="password" id="login-password" placeholder="Contraseña (ej: pass123)" class="w-full border p-3 rounded-lg" required>
-                <button type="submit" class="btn btn-primary w-full mt-6 py-3">
-                    Ingresar
-                </button>
-            </form>
+                <form onsubmit="handleLogin(event)" class="space-y-4">
+                    <input type="email" id="login-email" placeholder="Correo Electrónico (ej: lider1@uni.edu)" class="w-full border p-3 rounded-lg" required>
+                    <input type="password" id="login-password" placeholder="Contraseña (ej: pass123)" class="w-full border p-3 rounded-lg" required>
+                    <button type="submit" class="btn btn-primary w-full mt-6 py-3">
+                        Ingresar
+                    </button>
+                </form>
+            </div>
         </div>
 
         <!-- Vista del Sistema -->
         <div id="system-view" class="hidden w-full">
-            <header class="flex justify-between items-center mb-6 pb-4 border-b border-gray-300">
-                <h1 class="text-3xl font-bold text-gray-900">
-                    Panel de <span id="user-display-role">Carga</span>
-                </h1>
+            
+            <!-- NUEVO HEADER PROFESIONAL -->
+            <header class="app-header mb-8 flex justify-between items-center">
+                <!-- Logo y Título -->
                 <div class="flex items-center space-x-4">
-                    <span class="text-sm font-medium text-gray-600">
-                        <span id="user-display-group"></span> (<span id="user-display-email"></span>)
-                    </span>
-                    <button onclick="handleLogout()" class="text-red-600 hover:text-red-800 font-semibold transition duration-150">
+                    <svg class="h-10 w-10 text-blue-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" />
+                    </svg>
+                    <div>
+                        <h1 class="text-xl font-bold">Sistema de Turnos - Lab. Redes</h1>
+                        <p class="text-sm text-gray-300">Panel de <span id="user-display-role">Carga</span></p>
+                    </div>
+                </div>
+                <!-- Info de Usuario -->
+                <div class="flex items-center space-x-4">
+                    <div class="text-right">
+                        <span id="user-display-group" class="font-semibold"></span>
+                        <span id="user-display-email" class="text-xs text-gray-400 block"></span>
+                    </div>
+                    <button onclick="handleLogout()" class="text-red-400 hover:text-red-500 font-semibold transition duration-150 text-sm">
                         Salir
                     </button>
                 </div>
             </header>
             
-            <!-- Contenido del Panel: Administrador (NUEVO LAYOUT DE 2 COLUMNAS) -->
-            <div id="admin-panel" class="hidden card mt-4 grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Contenido del Panel: Administrador (Layout 2 Columnas) -->
+            <div id="admin-panel" class="hidden mt-4 grid grid-cols-1 lg:grid-cols-3 gap-8">
                 
                 <!-- Columna Izquierda: Calendario de Admin -->
-                <div class="lg:col-span-2 space-y-4">
+                <div class="lg:col-span-2 card space-y-4">
                     <h2 class="text-2xl font-semibold text-gray-700">Gestión de Horario Semanal</h2>
                     <p class="text-sm text-gray-500">
                         Selecciona múltiples slots (Libres o Bloqueados) y usa los botones de acción.
@@ -142,13 +202,13 @@
                         </button>
                     </div>
 
-                    <!-- Barra de Acción Admin (NUEVA) -->
+                    <!-- Barra de Acción Admin -->
                     <div id="admin-action-box" class="p-4 bg-gray-100 rounded-lg flex gap-4 hidden">
                         <button id="admin-block-btn" onclick="adminSubmitBatch('blocked')" class="btn btn-danger w-full">Bloquear (0)</button>
                         <button id="admin-unblock-btn" onclick="adminSubmitBatch('unblock')" class="btn btn-secondary w-full">Desbloquear (0)</button>
                     </div>
 
-                    <div class="card overflow-x-auto p-2 border">
+                    <div class="overflow-x-auto p-2 border rounded-lg">
                         <div id="admin-calendar" class="calendar-grid min-w-max">
                             <!-- Generado por JS -->
                         </div>
@@ -156,7 +216,7 @@
                 </div>
 
                 <!-- Columna Derecha: Aprobaciones -->
-                <div class="lg:col-span-1 space-y-4">
+                <div class="lg:col-span-1 card space-y-4">
                     <h2 class="text-2xl font-semibold text-gray-700">Solicitudes Pendientes</h2>
                     <div id="requests-list" class="space-y-4 max-h-[80vh] overflow-y-auto">
                         <p class="text-gray-500">Cargando solicitudes...</p>
@@ -165,7 +225,7 @@
 
             </div>
 
-            <!-- Contenido del Panel: Estudiante (Sin cambios de layout) -->
+            <!-- Contenido del Panel: Estudiante -->
             <div id="student-panel" class="hidden mt-4">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-2xl font-semibold text-gray-700">Reservar Turno (Lun-Vie)</h2>
@@ -187,13 +247,13 @@
                     </div>
                 </div>
 
-                <!-- LEYENDA DE ESTADOS -->
+                <!-- LEYENDA DE ESTADOS (ACTUALIZADA) -->
                 <div id="student-legend" class="mt-6 card p-4">
                     <h4 class="text-lg font-semibold mb-3 text-center text-gray-700">Leyenda</h4>
                     <div class="flex flex-wrap gap-x-6 gap-y-2 justify-center">
                         
                         <div class="flex items-center space-x-2">
-                            <div class="w-5 h-5 rounded-md slot-free"></div>
+                            <div class="w-5 h-5 rounded-md bg-white border border-gray-300"></div>
                             <span class="text-sm text-gray-600">Libre</span>
                         </div>
                         
@@ -203,20 +263,17 @@
                         </div>
                         
                         <div class="flex items-center space-x-2">
-                            <!-- Color genérico para Pendiente (basado en Grupo 2) -->
                             <div class="w-5 h-5 rounded-md bg-yellow-200 border border-yellow-300"></div>
                             <span class="text-sm text-gray-600">Pendiente</span>
                         </div>
                         
                         <div class="flex items-center space-x-2">
-                            <!-- Color genérico para Reservado (basado en Grupo 1) -->
                             <div class="w-5 h-5 rounded-md bg-red-500"></div>
                             <span class="text-sm text-gray-600">Reservado</span>
                         </div>
                         
                         <div class="flex items-center space-x-2">
-                            <!-- Color para Bloqueado/Pasado -->
-                            <div class="w-5 h-5 rounded-md bg-gray-700"></div>
+                            <div class="w-5 h-5 rounded-md bg-gray-100 text-gray-400 border border-gray-300"></div>
                             <span class="text-sm text-gray-600">No Disponible</span>
                         </div>
 
@@ -284,8 +341,8 @@
         let currentRepName = null;
         let reservations = []; 
         let authReady = false;
-        let studentSelectedSlots = []; // <-- renombrado para claridad
-        let adminSelectedSlots = []; // <-- NUEVO ESTADO PARA ADMIN
+        let studentSelectedSlots = []; 
+        let adminSelectedSlots = []; 
         let currentWeekOffset = 0; 
         
         // --- CONSTANTES DE AUTENTICACIÓN FIJAS (CON COLORES) ---
@@ -402,7 +459,6 @@
         // --- MANEJO DE VISTAS Y AUTENTICACIÓN ---
 
         function renderSystemView() {
-            // ... (código existente de renderSystemView, sin cambios) ...
             const loginView = document.getElementById('login-view');
             const systemView = document.getElementById('system-view');
             const adminPanel = document.getElementById('admin-panel');
@@ -410,7 +466,6 @@
             
             loginView.classList.add('hidden');
             systemView.classList.remove('hidden');
-            systemView.classList.add('flex', 'flex-col');
             
             document.getElementById('user-display-role').textContent = userRole === 'admin' ? 'Administración' : 'Jefe de Grupo';
             document.getElementById('user-display-group').textContent = currentGroup.name; 
@@ -428,7 +483,6 @@
         }
 
         window.handleLogin = async (e) => {
-            // ... (código existente de handleLogin, sin cambios) ...
             e.preventDefault();
             const email = document.getElementById('login-email').value.trim();
             const password = document.getElementById('login-password').value;
@@ -488,7 +542,6 @@
         };
 
         onAuthStateChanged(auth, (user) => {
-            // ... (código existente de onAuthStateChanged, sin cambios) ...
             if (!authReady) {
                 authReady = true;
                 initializeReservationListener();
@@ -529,7 +582,6 @@
         // --- LÓGICA DEL SISTEMA (CALENDARIO Y RESERVAS) ---
 
         function initializeReservationListener() {
-            // ... (código existente de initializeReservationListener, sin cambios) ...
             if (!authReady) return; 
             const q = collection(db, COLLECTION_PATH);
             
@@ -592,7 +644,7 @@
                     
                     if (slotDateHour < new Date()) {
                         slotEl.textContent = 'Pasado';
-                        slotEl.className = 'time-slot bg-gray-200 text-gray-500 cursor-not-allowed';
+                        slotEl.className = 'time-slot slot-past'; // <-- NUEVA CLASE
                         slotEl.onclick = null;
                     } 
                     else {
@@ -602,7 +654,7 @@
                         if (userRole === 'student') {
                             slotEl.onclick = () => handleSlotSelection(slotEl, day, hour, 'free');
                         } else if (userRole === 'admin') {
-                            slotEl.onclick = () => adminSelectSlot(slotEl, day, hour, 'free'); // <-- MODIFICADO
+                            slotEl.onclick = () => adminSelectSlot(slotEl, day, hour, 'free'); 
                         }
                     }
                     calendarEl.appendChild(slotEl);
@@ -626,10 +678,10 @@
         }
         
         function updateCalendarView() {
-            // Limpiar selecciones previas visualmente (necesario por el re-render)
+            // Limpiar selecciones previas visualmente
             const allSlots = document.querySelectorAll('.time-slot');
             allSlots.forEach(slotEl => {
-                if (slotEl.classList.contains('bg-gray-200')) return; // Ignorar 'Pasado'
+                if (slotEl.classList.contains('slot-past')) return; // Ignorar 'Pasado'
                 
                 // Resetear a 'Libre' antes de aplicar estados
                 slotEl.className = 'time-slot slot-free text-center';
@@ -651,21 +703,19 @@
                 
                 slotElements.forEach(slotEl => {
                     if (!slotEl) return; 
-                    if (slotEl.classList.contains('bg-gray-200')) return;
+                    if (slotEl.classList.contains('slot-past')) return;
 
                     slotEl.className = 'time-slot';
                     
                     // --- LÓGICA DE VISUALIZACIÓN DE COLOR (Modificada) ---
                     let colorName;
                     if (userRole === 'admin') {
-                        // El ADMIN ve el color específico del grupo
                         colorName = res.color || 'gray';
                     } else {
-                        // El ESTUDIANTE ve colores genéricos que coinciden con la leyenda
                         if (res.status === 'approved') {
-                            colorName = 'red'; // Color genérico para "Reservado" (leyenda)
+                            colorName = 'red'; // Color genérico "Reservado" 
                         } else if (res.status === 'pending') {
-                            colorName = 'yellow'; // Color genérico para "Pendiente" (leyenda)
+                            colorName = 'yellow'; // Color genérico "Pendiente"
                         } else {
                             colorName = 'default';
                         }
@@ -700,12 +750,13 @@
                         
                         case 'blocked':
                             slotEl.innerHTML = `<span class="font-bold">Bloqueado</span><span class="text-xs">Admin</span>`;
-                            slotEl.classList.add('slot-disabled', 'bg-gray-700', 'text-white');
+                            slotEl.classList.add('slot-blocked'); // <-- NUEVA CLASE
                             if (userRole === 'admin') {
                                 slotEl.classList.add('cursor-pointer');
                                 slotEl.classList.remove('cursor-not-allowed');
                                 slotEl.onclick = () => adminSelectSlot(slotEl, date, hour, 'blocked');
                             } else {
+                                slotEl.classList.add('cursor-not-allowed');
                                 slotEl.onclick = null;
                             }
                             break;
