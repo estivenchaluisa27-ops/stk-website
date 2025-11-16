@@ -29,23 +29,11 @@
             flex-direction: column; 
             justify-content: center; 
             align-items: center; 
-            line-height: 1.2; 
+            line-height: 1.2;
+            border: 1px solid transparent; /* Borde base para consistencia */
         }
         
-        /* Estilos de Slots */
-        .slot-disabled { background-color: #e5e7eb; color: #9ca3af; cursor: not-allowed; } /* NUEVO: Para horas no habilitadas por el admin */
-        .slot-free { background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
-        .slot-free:hover { background-color: #a7f3d0; }
-        .slot-pending { background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
-        .slot-pending:hover { background-color: #fde68a; }
-        .slot-approved { background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; cursor: not-allowed; }
-        .slot-selected { 
-            background-color: #3b82f6; 
-            color: white; 
-            box-shadow: 0 4px 6px rgba(59, 130, 246, 0.5); 
-            transform: scale(1.03); 
-            border: 1px solid #3b82f6;
-        }
+        /* Estilos de Slots base */
         .slot-header { 
             font-weight: bold; 
             background-color: #e5e7eb; 
@@ -56,33 +44,44 @@
             align-items: center; 
             height: 60px;
         }
+        .slot-disabled { background-color: #e5e7eb; color: #9ca3af; cursor: not-allowed; }
+        .slot-free { background-color: #d1fae5; color: #065f46; border-color: #a7f3d0; }
+        .slot-free:hover { background-color: #a7f3d0; }
+        .slot-selected { 
+            background-color: #3b82f6 !important; /* Usar important para sobreescribir colores de grupo */
+            color: white !important; 
+            box-shadow: 0 4px 6px rgba(59, 130, 246, 0.5); 
+            transform: scale(1.03); 
+            border-color: #3b82f6 !important;
+        }
         
+        /* Estilos de Botones */
+        .btn {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            transition: all 0.2s;
+            font-weight: 600;
+            cursor: pointer;
+        }
         .btn-primary {
             background-color: #4f46e5;
             color: white;
-            padding: 0.75rem 1.5rem;
-            border-radius: 0.75rem;
-            transition: all 0.2s;
-            font-weight: 600;
             box-shadow: 0 4px 6px rgba(79, 70, 229, 0.3);
         }
-        .btn-primary:hover {
-            background-color: #4338ca;
-            box-shadow: 0 6px 8px rgba(79, 70, 229, 0.4);
-        }
-        .btn-primary:disabled {
-            background-color: #a5b4fc;
-            cursor: not-allowed;
-            box-shadow: none;
-        }
+        .btn-primary:hover { background-color: #4338ca; }
+        .btn-primary:disabled { background-color: #a5b4fc; cursor: not-allowed; box-shadow: none; }
         
-        /* Estilos para los Toggles del Admin */
-        .switch { position: relative; display: inline-block; width: 50px; height: 28px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 28px; }
-        .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: #4f46e5; }
-        input:checked + .slider:before { transform: translateX(22px); }
+        .btn-secondary { background-color: #e5e7eb; color: #374151; }
+        .btn-secondary:hover { background-color: #d1d5db; }
+
+        .btn-success { background-color: #10b981; color: white; }
+        .btn-success:hover { background-color: #059669; }
+        .btn-danger { background-color: #ef4444; color: white; }
+        .btn-danger:hover { background-color: #dc2626; }
+
+
+        /* Clases de Color de Grupo (Generadas por JS) */
+        /* Ejemplo: .bg-red-200, .text-red-800, .border-red-300 */
     </style>
 </head>
 <body class="min-h-screen flex items-center justify-center p-4">
@@ -94,23 +93,12 @@
         <div id="login-view" class="card max-w-lg mx-auto">
             <h1 class="text-3xl font-bold mb-6 text-center text-gray-800">Acceso al Sistema de Turnos</h1>
             
-            <!-- Contenedor de Mensajes -->
             <div id="message-box" class="mb-4 hidden p-3 rounded-lg text-sm" role="alert"></div>
 
             <form onsubmit="handleLogin(event)" class="space-y-4">
-                <div>
-                    <label for="login-role" class="block text-sm font-medium text-gray-700 mb-1">Selecciona tu Rol</label>
-                    <select id="login-role" class="w-full border border-gray-300 p-3 rounded-lg focus:ring-indigo-500 focus:border-indigo-500">
-                        <option value="student">Jefe de Grupo (Líder)</option>
-                        <option value="admin">Administrador del Laboratorio</option>
-                    </select>
-                </div>
-
-                <!-- Campos de Login (Compartidos por ambos roles) -->
                 <input type="email" id="login-email" placeholder="Correo Electrónico (ej: lider1@uni.edu)" class="w-full border p-3 rounded-lg" required>
                 <input type="password" id="login-password" placeholder="Contraseña (ej: pass123)" class="w-full border p-3 rounded-lg" required>
-
-                <button type="submit" class="btn-primary w-full mt-6">
+                <button type="submit" class="btn btn-primary w-full mt-6 py-3">
                     Ingresar
                 </button>
             </form>
@@ -141,16 +129,28 @@
                     </div>
                 </div>
                 
-                <!-- NUEVO PANEL DE CONFIGURACIÓN DE HORARIO -->
+                <!-- CALENDARIO DE ADMIN PARA BLOQUEAR -->
                 <div>
-                    <h2 class="text-2xl font-semibold mb-4 text-gray-700">Configuración de Horario Habilitado</h2>
-                    <p class="text-sm text-gray-500 mb-4">Habilita o deshabilita las horas de inicio de turno para todos los días. Los estudiantes solo podrán reservar en horas habilitadas.</p>
-                    <div id="admin-schedule-config" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        <!-- Generado por JS -->
+                    <h2 class="text-2xl font-semibold mb-4 text-gray-700">Gestión de Horario Semanal (Bloquear/Desbloquear)</h2>
+                    <p class="text-sm text-gray-500 mb-4">
+                        Haz clic en un slot "Libre" para bloquearlo en esta semana. Haz clic en un slot "Bloqueado" para liberarlo.
+                    </p>
+                    
+                    <div class="flex justify-between items-center mb-4">
+                        <button onclick="changeWeek(-1)" class="btn btn-secondary">
+                            &lt; Semana Ant.
+                        </button>
+                        <span id="admin-week-display" class="font-bold text-lg text-gray-700 text-center w-48"></span>
+                        <button onclick="changeWeek(1)" class="btn btn-secondary">
+                            Semana Sig. &gt;
+                        </button>
                     </div>
-                    <button onclick="saveScheduleConfig()" class="btn-primary mt-6">
-                        Guardar Horario
-                    </button>
+
+                    <div class="card overflow-x-auto p-2">
+                        <div id="admin-calendar" class="calendar-grid min-w-max">
+                            <!-- Generado por JS -->
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -159,31 +159,66 @@
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-2xl font-semibold text-gray-700">Reservar Turno (Lun-Vie)</h2>
                     
-                    <!-- BOTONES DE SEMANA (REACTIVADOS) -->
                     <div class="flex items-center space-x-2">
-                        <button onclick="changeWeek(-1)" class="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition duration-150">
+                        <button onclick="changeWeek(-1)" class="btn btn-secondary">
                             &lt; Semana Ant.
                         </button>
-                        <span id="week-display" class="font-bold text-lg text-gray-700 text-center w-48"></span>
-                        <button onclick="changeWeek(1)" class="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition duration-150">
+                        <span id="student-week-display" class="font-bold text-lg text-gray-700 text-center w-48"></span>
+                        <button onclick="changeWeek(1)" class="btn btn-secondary">
                             Semana Sig. &gt;
                         </button>
                     </div>
                 </div>
 
-                <!-- Calendario de Turnos -->
-                <div class="card overflow-x-auto">
-                    <div id="calendar" class="calendar-grid min-w-max">
+                <div class="card overflow-x-auto p-2">
+                    <div id="student-calendar" class="calendar-grid min-w-max">
                         <!-- Generado por JS -->
                     </div>
                 </div>
+
+                <!-- LEYENDA DE ESTADOS (Añadida) -->
+                <div id="student-legend" class="mt-6 card p-4">
+                    <h4 class="text-lg font-semibold mb-3 text-center text-gray-700">Leyenda</h4>
+                    <div class="flex flex-wrap gap-x-6 gap-y-2 justify-center">
+                        
+                        <div class="flex items-center space-x-2">
+                            <div class="w-5 h-5 rounded-md slot-free"></div>
+                            <span class="text-sm text-gray-600">Libre</span>
+                        </div>
+                        
+                        <div class="flex items-center space-x-2">
+                            <div class="w-5 h-5 rounded-md slot-selected"></div>
+                            <span class="text-sm text-gray-600">Mi Selección</span>
+                        </div>
+                        
+                        <div class="flex items-center space-x-2">
+                            <!-- Color genérico para Pendiente (basado en Grupo 2) -->
+                            <div class="w-5 h-5 rounded-md bg-yellow-200 border border-yellow-300"></div>
+                            <span class="text-sm text-gray-600">Pendiente</span>
+                        </div>
+                        
+                        <div class="flex items-center space-x-2">
+                            <!-- Color genérico para Reservado (basado en Grupo 1) -->
+                            <div class="w-5 h-5 rounded-md bg-red-500"></div>
+                            <span class="text-sm text-gray-600">Reservado</span>
+                        </div>
+                        
+                        <div class="flex items-center space-x-2">
+                            <!-- Color para Bloqueado/Pasado -->
+                            <div class="w-5 h-5 rounded-md bg-gray-700"></div>
+                            <span class="text-sm text-gray-600">No Disponible</span>
+                        </div>
+
+                    </div>
+                </div>
+                <!-- FIN DE LEYENDA -->
 
                 <div class="mt-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg shadow-md">
                     <h3 class="text-xl font-semibold mb-2 text-yellow-800">Solicitud de Turno</h3>
                     <p id="selected-slot-display" class="mb-4 text-gray-700">
                         Selecciona uno o más horarios libres en el calendario para solicitar un turno.
                     </p>
-                    <button id="request-button" onclick="submitRequest()" class="btn-primary" disabled>
+                    <button id="request-button" onclick="submitRequest()" class="btn btn-primary" disabled>
                         Enviar Solicitud (0 turnos)
                     </button>
                 </div>
@@ -200,17 +235,18 @@
             signOut,
             onAuthStateChanged, 
             setPersistence,
-            browserLocalPersistence // Mantiene la sesión iniciada
+            browserLocalPersistence
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { 
             getFirestore, 
             doc, 
             setDoc, 
+            deleteDoc, // <-- Importar deleteDoc
             onSnapshot, 
             collection, 
             query, 
             serverTimestamp,
-            writeBatch // Usaremos 'writeBatch' para solicitudes múltiples
+            writeBatch
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
         // Configuración de la aplicación
@@ -233,25 +269,23 @@
         // Estado Global
         let userId = null;
         let userRole = null;
-        let currentGroup = null;
+        let currentGroup = null; // <-- Ahora será un objeto { name, color }
         let currentRepName = null;
-        let reservations = []; // Caché local de reservas
+        let reservations = []; 
         let authReady = false;
-        let selectedSlots = []; // Para selección múltiple
-        let currentWeekOffset = 0; // Para navegación de semana
+        let selectedSlots = []; 
+        let currentWeekOffset = 0; 
         
-        // --- NUEVO ESTADO PARA HORARIO CONFIGURABLE ---
-        let availableHoursConfig = []; // Horas habilitadas por el admin
-        
-        // --- CONSTANTES DE AUTENTICACIÓN FIJAS ---
+        // --- CONSTANTES DE AUTENTICACIÓN FIJAS (CON COLORES) ---
         const GRUPO_LIDERES = {
-            "lider1@uni.edu": "Grupo Redes A",
-            "lider2@uni.edu": "Grupo Redes B",
-            "lider3@uni.edu": "Grupo Control C",
-            "lider4@uni.edu": "Grupo Servidores D",
-            "lider5@uni.edu": "Grupo Seguridad E",
-            "lider6@uni.edu": "Grupo Pruebas F",
-            "lider7@uni.edu": "Grupo Final G",
+            // Paleta de 7 colores
+            "lider1@uni.edu": { name: "Grupo Redes A", color: "red" },
+            "lider2@uni.edu": { name: "Grupo Redes B", color: "yellow" },
+            "lider3@uni.edu": { name: "Grupo Control C", color: "green" },
+            "lider4@uni.edu": { name: "Grupo Servidores D", color: "blue" },
+            "lider5@uni.edu": { name: "Grupo Seguridad E", color: "indigo" },
+            "lider6@uni.edu": { name: "Grupo Pruebas F", color: "purple" },
+            "lider7@uni.edu": { name: "Grupo Final G", color: "pink" },
         };
         const LIDER_PASS = 'pass123'; 
         const ADMIN_CREDENTIALS = {
@@ -260,8 +294,7 @@
         };
         const ADMIN_PASS = 'adminpass'; 
 
-        // --- CONSTANTES DEL CALENDARIO (MODIFICADAS) ---
-        // Array de objetos para la columna de horas (7am - 7pm)
+        // --- CONSTANTES DEL CALENDARIO (7am - 7pm) ---
         const HOUR_SLOTS = [
             { label: '07:00 - 08:00', data: '07:00' },
             { label: '08:00 - 09:00', data: '08:00' },
@@ -280,24 +313,21 @@
         
         // Rutas de la Base de Datos
         const COLLECTION_PATH = `artifacts/${appId}/public/data/reservations`;
-        const SCHEDULE_CONFIG_PATH = `artifacts/${appId}/public/data/scheduleConfig`;
 
         // --- UTILIDADES ---
 
         function showMessage(message, type) {
             const box = document.getElementById('message-box');
-            if (!box) return; // Salir si el DOM no está listo
+            if (!box) return; 
             box.innerText = message;
             box.className = 'mb-4 p-3 rounded-lg text-sm';
             box.classList.remove('hidden');
-
             const classMap = {
                 'success': ['bg-green-100', 'text-green-800', 'border', 'border-green-400'],
                 'error': ['bg-red-100', 'text-red-800', 'border', 'border-red-400'],
                 'info': ['bg-blue-100', 'text-blue-800', 'border', 'border-blue-400'],
             };
             box.classList.add(...classMap[type]);
-            
             setTimeout(() => box.classList.add('hidden'), 5000);
         }
 
@@ -312,19 +342,48 @@
             const dd = String(date.getDate()).padStart(2, '0');
             return `${yyyy}-${mm}-${dd}_${hour.replace(':', '-')}`;
         }
+        
+        // (NUEVA) Función de utilidad para colores
+        function getSlotColorClasses(colorName, status) {
+            if (status === 'approved') {
+                // Aprobado: Sólido
+                const colors = {
+                    red: 'bg-red-500 text-white',
+                    yellow: 'bg-yellow-500 text-white',
+                    green: 'bg-green-500 text-white',
+                    blue: 'bg-blue-500 text-white',
+                    indigo: 'bg-indigo-500 text-white',
+                    purple: 'bg-purple-500 text-white',
+                    pink: 'bg-pink-500 text-white',
+                    default: 'bg-gray-500 text-white'
+                };
+                return (colors[colorName] || colors.default).split(' ');
+            } else {
+                // Pendiente: Claro
+                const colors = {
+                    red: 'bg-red-200 text-red-800 border-red-300',
+                    yellow: 'bg-yellow-200 text-yellow-800 border-yellow-300',
+                    green: 'bg-green-200 text-green-800 border-green-300',
+                    blue: 'bg-blue-200 text-blue-800 border-blue-300',
+                    indigo: 'bg-indigo-200 text-indigo-800 border-indigo-300',
+                    purple: 'bg-purple-200 text-purple-800 border-purple-300',
+                    pink: 'bg-pink-200 text-pink-800 border-pink-300',
+                    default: 'bg-gray-200 text-gray-800 border-gray-300'
+                };
+                return (colors[colorName] || colors.default).split(' ');
+            }
+        }
 
-        // --- LÓGICA DE CALENDARIO (MODIFICADA) ---
 
-        // Devuelve 5 días (Lun-Vie) de la semana (con offset)
+        // --- LÓGICA DE CALENDARIO ---
+
         function getWeekDays(offset) {
             const days = [];
             const today = new Date();
             const dayOfWeek = today.getDay(); 
-            const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Lunes = 1, Domingo = 0
-            
-            today.setDate(today.getDate() + diff + (offset * 7)); // Ir a Lunes de la semana seleccionada
-
-            for (let i = 0; i < 5; i++) { // Bucle de 5 días
+            const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+            today.setDate(today.getDate() + diff + (offset * 7));
+            for (let i = 0; i < 5; i++) {
                 const date = new Date(today);
                 date.setDate(today.getDate() + i);
                 days.push(date);
@@ -335,7 +394,6 @@
         // --- MANEJO DE VISTAS Y AUTENTICACIÓN ---
 
         function renderSystemView() {
-            // ... (Función sin cambios, se omite por brevedad) ...
             const loginView = document.getElementById('login-view');
             const systemView = document.getElementById('system-view');
             const adminPanel = document.getElementById('admin-panel');
@@ -346,25 +404,24 @@
             systemView.classList.add('flex', 'flex-col');
             
             document.getElementById('user-display-role').textContent = userRole === 'admin' ? 'Administración' : 'Jefe de Grupo';
-            document.getElementById('user-display-group').textContent = currentGroup;
+            document.getElementById('user-display-group').textContent = currentGroup.name; // <-- Usar currentGroup.name
             document.getElementById('user-display-email').textContent = auth.currentUser.email;
 
             if (userRole === 'admin') {
                 adminPanel.classList.remove('hidden');
                 studentPanel.classList.add('hidden');
-                updateCalendarView(); 
-                renderAdminScheduleConfig(); // <--- NUEVO: Renderizar panel de config
+                // Renderizar calendario del admin
+                renderCalendar('admin-calendar', 'admin-week-display');
             } else {
                 adminPanel.classList.add('hidden');
                 studentPanel.classList.remove('hidden');
-                renderCalendar();
+                // Renderizar calendario del estudiante
+                renderCalendar('student-calendar', 'student-week-display');
             }
         }
 
         window.handleLogin = async (e) => {
-            // ... (Función sin cambios, se omite por brevedad) ...
             e.preventDefault();
-            const role = document.getElementById('login-role').value;
             const email = document.getElementById('login-email').value.trim();
             const password = document.getElementById('login-password').value;
 
@@ -388,7 +445,7 @@
                     }
                     userRole = 'admin';
                     currentRepName = 'Admin';
-                    currentGroup = 'ADMIN';
+                    currentGroup = { name: 'ADMIN', color: 'gray' }; // <-- Objeto
 
                 } else if (GRUPO_LIDERES[authenticatedEmail]) {
                      if (password !== LIDER_PASS) {
@@ -398,7 +455,7 @@
                     }
                     userRole = 'student';
                     currentRepName = authenticatedEmail;
-                    currentGroup = GRUPO_LIDERES[authenticatedEmail];
+                    currentGroup = GRUPO_LIDERES[authenticatedEmail]; // <-- Objeto
 
                 } else {
                     await signOut(auth); 
@@ -425,11 +482,9 @@
         onAuthStateChanged(auth, (user) => {
             if (!authReady) {
                 authReady = true;
-                // Inicializar AMBOS listeners
                 initializeReservationListener();
-                initializeScheduleListener(); // <--- NUEVO
             }
-            // ... (lógica de vistas sin cambios) ...
+
             const loginView = document.getElementById('login-view');
             const systemView = document.getElementById('system-view');
 
@@ -438,7 +493,7 @@
                     const email = user.email;
                     if (ADMIN_CREDENTIALS[email]) {
                         userRole = 'admin';
-                        currentGroup = 'ADMIN';
+                        currentGroup = { name: 'ADMIN', color: 'gray' };
                         currentRepName = 'Admin';
                     } else if (GRUPO_LIDERES[email]) {
                         userRole = 'student';
@@ -464,7 +519,6 @@
 
         // --- LÓGICA DEL SISTEMA (CALENDARIO Y RESERVAS) ---
 
-        // Listener para RESERVAS
         function initializeReservationListener() {
             if (!authReady) return; 
             const q = collection(db, COLLECTION_PATH);
@@ -476,8 +530,7 @@
                 });
                 
                 if (document.getElementById('login-view').classList.contains('hidden')) {
-                    if (userRole === 'student') renderCalendar();
-                    else if (userRole === 'admin') updateCalendarView();
+                    updateCalendarView();
                 }
             }, (error) => {
                 console.error("Error al escuchar (reservations):", error);
@@ -487,38 +540,15 @@
             });
         }
         
-        // --- NUEVO LISTENER para CONFIGURACIÓN DE HORARIO ---
-        function initializeScheduleListener() {
-            if (!authReady) return;
-            const configDocRef = doc(db, SCHEDULE_CONFIG_PATH, 'global');
-            
-            onSnapshot(configDocRef, (docSnap) => {
-                if (docSnap.exists()) {
-                    availableHoursConfig = docSnap.data().enabledHours || [];
-                } else {
-                    // Si el documento no existe, se asume un horario por defecto (7am-8pm)
-                    availableHoursConfig = HOUR_SLOTS.map(h => h.data);
-                    console.warn("No se encontró 'scheduleConfig/global'. Usando horario por defecto.");
-                }
-                
-                // Re-renderizar la vista actual si ya estamos logueados
-                if (document.getElementById('login-view').classList.contains('hidden')) {
-                    if (userRole === 'student') renderCalendar();
-                    else if (userRole === 'admin') renderAdminScheduleConfig();
-                }
-            }, (error) => {
-                console.error("Error al escuchar (scheduleConfig):", error);
-                showMessage("Error al cargar la configuración del horario.", 'error');
-            });
-        }
-
-
         // --- RENDERIZADO DEL CALENDARIO (MODIFICADO) ---
-        function renderCalendar() {
-            const calendarEl = document.getElementById('calendar');
+        function renderCalendar(calendarId, weekDisplayId) {
+            const calendarEl = document.getElementById(calendarId);
+            const weekDisplayEl = document.getElementById(weekDisplayId);
+            if (!calendarEl || !weekDisplayEl) return; 
+            
             calendarEl.innerHTML = '';
             
-            const days = getWeekDays(currentWeekOffset); // <--- USA OFFSET
+            const days = getWeekDays(currentWeekOffset);
             
             // 1. Cabecera de Días
             const corner = document.createElement('div');
@@ -550,120 +580,147 @@
                     
                     const slotDateHour = new Date(day.toISOString().split('T')[0] + 'T' + hour + ':00');
                     
-                    // LÓGICA DE RENDERIZADO (Prioridad)
                     if (slotDateHour < new Date()) {
-                        // 1. Pasado
                         slotEl.textContent = 'Pasado';
                         slotEl.className = 'time-slot bg-gray-200 text-gray-500 cursor-not-allowed';
                         slotEl.onclick = null;
-                    } else if (!availableHoursConfig.includes(hour)) {
-                        // 2. No Habilitado por Admin
-                        slotEl.textContent = 'No disponible';
-                        slotEl.className = 'time-slot slot-disabled';
-                        slotEl.onclick = null;
-                    } else {
-                        // 3. Habilitado (puede estar Libre, Pendiente o Aprobado)
+                    } 
+                    else {
                         slotEl.className = 'time-slot slot-free text-center';
                         slotEl.textContent = 'Libre';
-                        slotEl.onclick = () => handleSlotSelection(slotEl, day, hour);
+                        
+                        if (userRole === 'student') {
+                            slotEl.onclick = () => handleSlotSelection(slotEl, day, hour);
+                        } else if (userRole === 'admin') {
+                            slotEl.onclick = () => adminToggleBlock(slotEl, day, hour); 
+                        }
                     }
                     calendarEl.appendChild(slotEl);
                 });
             });
 
-            // 3. Actualizar la vista con las reservas
             updateCalendarView();
             
-            // 4. Actualizar el rango de la semana
             const firstDay = days[0].toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
             const lastDay = days[days.length - 1].toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
-            document.getElementById('week-display').textContent = `${firstDay} - ${lastDay}`;
+            weekDisplayEl.textContent = `${firstDay} - ${lastDay}`;
             
-            // 5. Limpiar selección múltiple
-            selectedSlots = [];
-            updateSelectionBox();
+            if (userRole === 'student') {
+                selectedSlots = [];
+                updateSelectionBox();
+            }
         }
         
         function updateCalendarView() {
-            if(userRole === 'admin') {
-                document.getElementById('requests-list').innerHTML = ''; 
-            }
-            
-            let hasPendingRequests = false;
-            const now = new Date();
-
-            const activeReservations = reservations.filter(res => res.status === 'pending' || res.status === 'approved');
-
-            activeReservations.forEach(res => {
-                const slotEl = document.querySelector(`[data-slot-id="${res.id}"]`);
+            reservations.forEach(res => {
+                const slotElements = document.querySelectorAll(`[data-slot-id="${res.id}"]`);
                 
-                if (slotEl) {
-                    // Solo modificar si NO es 'Pasado' o 'No disponible'
-                    if (slotEl.classList.contains('slot-free') || slotEl.classList.contains('slot-pending')) {
-                        slotEl.className = 'time-slot'; // Reset
-                        switch (res.status) {
-                            case 'approved':
-                                slotEl.innerHTML = `<span class="font-bold">${res.group}</span><span class="text-xs">Reservado</span>`;
-                                slotEl.classList.add('slot-approved', 'cursor-not-allowed');
-                                slotEl.onclick = null;
-                                break;
-                            case 'pending':
-                                slotEl.innerHTML = `<span class="font-bold">${res.group}</span><span class="text-xs">Pendiente</span>`;
-                                slotEl.classList.add('slot-pending');
-                                if (userRole === 'student' && res.representative === currentRepName) {
-                                     slotEl.classList.add('cursor-pointer');
-                                     slotEl.onclick = () => anularSlot(res.id); 
-                                } else {
-                                     slotEl.classList.add('cursor-not-allowed');
-                                     slotEl.onclick = null;
-                                }
-                                break;
-                        }
-                    }
-                }
+                slotElements.forEach(slotEl => {
+                    if (!slotEl) return; 
+                    if (slotEl.classList.contains('bg-gray-200')) return;
 
-                // Renderizado de Peticiones del Admin
-                if (userRole === 'admin' && res.status === 'pending') {
+                    slotEl.className = 'time-slot';
+                    const colorName = res.color || 'gray';
+                    
+                    switch (res.status) {
+                        case 'approved':
+                            slotEl.innerHTML = `<span class="font-bold">${res.group}</span><span class="text-xs">Reservado</span>`;
+                            slotEl.classList.add(...getSlotColorClasses(colorName, 'approved'), 'cursor-not-allowed');
+                            slotEl.onclick = null;
+                            break;
+                            
+                        case 'pending':
+                            slotEl.innerHTML = `<span class="font-bold">${res.group}</span><span class="text-xs">Pendiente</span>`;
+                            slotEl.classList.add(...getSlotColorClasses(colorName, 'pending'));
+                            
+                            if (userRole === 'student' && res.representative === currentRepName) {
+                                slotEl.classList.add('cursor-pointer'); 
+                                slotEl.onclick = () => anularSlot(res.id); 
+                            } else {
+                                slotEl.classList.add('cursor-not-allowed');
+                                slotEl.onclick = null;
+                            }
+                            break;
+                        
+                        case 'blocked':
+                            slotEl.innerHTML = `<span class="font-bold">Bloqueado</span><span class="text-xs">Admin</span>`;
+                            slotEl.classList.add('slot-disabled', 'bg-gray-700', 'text-white');
+                            if (userRole === 'admin') {
+                                slotEl.classList.add('cursor-pointer');
+                                slotEl.classList.remove('cursor-not-allowed');
+                                const date = new Date(res.date + 'T00:00:00'); 
+                                slotEl.onclick = () => adminToggleBlock(slotEl, date, res.hour);
+                            } else {
+                                slotEl.onclick = null;
+                            }
+                            break;
+                            
+                        case 'rejected':
+                            slotEl.className = 'time-slot slot-free text-center';
+                            slotEl.textContent = 'Libre';
+                            if (userRole === 'student') {
+                                const date = new Date(res.date + 'T00:00:00');
+                                slotEl.onclick = () => handleSlotSelection(slotEl, date, res.hour);
+                            } else if (userRole === 'admin') {
+                                const date = new Date(res.date + 'T00:00:00');
+                                slotEl.onclick = () => adminToggleBlock(slotEl, date, res.hour);
+                            }
+                            break;
+                    }
+                });
+            });
+
+            if(userRole === 'admin') {
+                const listEl = document.getElementById('requests-list');
+                listEl.innerHTML = ''; 
+                let hasPendingRequests = false;
+                
+                const pendingReservations = reservations
+                    .filter(res => res.status === 'pending')
+                    .sort((a,b) => (a.timestamp?.seconds || 0) - (b.timestamp?.seconds || 0)); 
+                
+                pendingReservations.forEach(res => {
                     renderAdminRequest(res);
                     hasPendingRequests = true;
+                });
+                
+                if (!hasPendingRequests) {
+                     listEl.innerHTML = '<p class="text-gray-500">No hay solicitudes pendientes de aprobación.</p>';
                 }
-            });
-            
-            if (userRole === 'admin' && !hasPendingRequests) {
-                 document.getElementById('requests-list').innerHTML = '<p class="text-gray-500">No hay solicitudes pendientes de aprobación.</p>';
             }
         }
         
         function renderAdminRequest(request) {
-            // ... (Función sin cambios, se omite por brevedad) ...
             const listEl = document.getElementById('requests-list');
             const requestEl = document.createElement('div');
-            const dateStr = new Date(request.date).toLocaleDateString('es-ES', { month: 'long', day: 'numeric' });
+            const dateStr = request.date; 
             
-            requestEl.className = 'p-4 border border-yellow-300 bg-yellow-50 rounded-lg shadow-sm flex justify-between items-center flex-wrap gap-2';
+            const colorName = request.color || 'gray';
+            const [bgClass, textClass, borderClass] = getSlotColorClasses(colorName, 'pending');
+
+            requestEl.className = `p-4 border-l-4 ${borderClass} ${bgClass} rounded-lg shadow-sm flex justify-between items-center flex-wrap gap-2`;
             requestEl.innerHTML = `
                 <div class="flex-grow">
-                    <p class="font-bold text-lg text-gray-800">${request.group}</p>
-                    <p class="text-sm text-gray-600">Líder: ${request.representative}</p>
-                    <p class="text-md font-medium text-indigo-600">${dateStr} a las ${request.hour}</p>
+                    <p class="font-bold text-lg ${textClass}">${request.group}</p>
+                    <p class="text-sm ${textClass} opacity-80">Líder: ${request.representative}</p>
+                    <p class="text-md font-medium ${textClass}">${dateStr} a las ${request.hour}</p>
                 </div>
                 <div class="space-x-2 flex-shrink-0">
-                    <button onclick="updateRequestStatus('${request.id}', 'approved')" class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition">Aprobar</button>
-                    <button onclick="updateRequestStatus('${request.id}', 'rejected')" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition">Rechazar</button>
+                    <button onclick="updateRequestStatus('${request.id}', 'approved')" class="btn btn-success">Aprobar</button>
+                    <button onclick="updateRequestStatus('${request.id}', 'rejected')" class="btn btn-danger">Rechazar</button>
                 </div>
             `;
             listEl.appendChild(requestEl);
         }
 
-        // --- LÓGICA DE SELECCIÓN MÚLTIPLE (NUEVA) ---
+        // --- LÓGICA DE SELECCIÓN MÚLTIPLE (Estudiante) ---
 
         function handleSlotSelection(slotEl, date, hour) {
             const slotId = formatReservationId(date, hour);
             const dateISO = date.toISOString().split('T')[0];
             
-            // RE-VERIFICAR si el slot es 'Libre' (requisito para seleccionar)
             if (!slotEl.classList.contains('slot-free')) {
-                return; // No hacer nada si está pendiente, aprobado, o deshabilitado
+                return;
             }
 
             const index = selectedSlots.findIndex(slot => slot.id === slotId);
@@ -680,12 +737,11 @@
         }
 
         async function anularSlot(slotId) {
-             // ... (Función sin cambios, se omite por brevedad) ...
              if (userRole !== 'student') return;
              if (!window.confirm("¿Estás seguro de que quieres anular tu solicitud de turno pendiente?")) { return; }
              const docRef = doc(db, COLLECTION_PATH, slotId);
              try {
-                await setDoc(docRef, { status: 'rejected', group: null, representative: null }, { merge: true }); 
+                await setDoc(docRef, { status: 'rejected', group: null, representative: null, color: null }, { merge: true }); 
                 showMessage("Solicitud anulada con éxito.", 'success');
              } catch (e) {
                 console.error("Error al anular:", e);
@@ -694,9 +750,9 @@
         }
         
         function updateSelectionBox() {
-            // ... (Función sin cambios, se omite por brevedad) ...
             const display = document.getElementById('selected-slot-display');
             const button = document.getElementById('request-button');
+            if (!display || !button) return; 
             
             if (selectedSlots.length === 0) {
                 display.textContent = 'Selecciona uno o más horarios libres en el calendario para solicitar un turno.';
@@ -705,7 +761,7 @@
             } else {
                 display.innerHTML = `<span class="font-bold">Turnos Seleccionados (${selectedSlots.length}):</span><ul class="list-disc list-inside mt-2 text-sm">`;
                 selectedSlots.forEach(slot => {
-                    const dayStr = new Date(slot.date).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' });
+                    const dayStr = new Date(slot.date + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' });
                     display.innerHTML += `<li>${dayStr} a las ${slot.hour}</li>`;
                 });
                 display.innerHTML += `</ul>`;
@@ -718,55 +774,55 @@
         // --- LÓGICA DE ENVÍO Y ACTUALIZACIÓN ---
         
         window.submitRequest = async () => {
-            // ... (Función sin cambios, se omite por brevedad) ...
-            if (selectedSlots.length === 0) {
-                showMessage("No has seleccionado ningún turno.", 'error');
-                return;
-            }
-            if (!window.confirm(`¿Estás seguro de que quieres enviar ${selectedSlots.length} solicitudes de turno?`)) {
-                return;
-            }
+            if (selectedSlots.length === 0) { showMessage("No has seleccionado ningún turno.", 'error'); return; }
+            if (!window.confirm(`¿Estás seguro de que quieres enviar ${selectedSlots.length} solicitudes de turno?`)) { return; }
+
             const batch = writeBatch(db);
             try {
                 for (const slot of selectedSlots) {
                     const slotId = slot.id;
                     const docRef = doc(db, COLLECTION_PATH, slotId);
+
+                    const existingReservation = reservations.find(r => r.id === slotId && (r.status === 'approved' || r.status === 'pending' || r.status === 'blocked'));
+                    if (existingReservation) {
+                        throw new Error(`El turno ${slot.date} ${slot.hour} ya fue tomado o bloqueado.`);
+                    }
+
                     const reservationData = {
                         id: slotId,
                         date: slot.date,
                         hour: slot.hour,
-                        group: currentGroup,
+                        group: currentGroup.name, // <-- Guardar nombre
+                        color: currentGroup.color, // <-- GUARDAR COLOR
                         representative: currentRepName,
                         status: 'pending',
                         timestamp: serverTimestamp(),
                     };
+                    
                     batch.set(docRef, reservationData);
                 }
+                
                 await batch.commit();
                 showMessage(`¡${selectedSlots.length} solicitudes enviadas con éxito! Esperando aprobación.`, 'success');
+                
             } catch (e) {
                 console.error("Error al enviar las solicitudes en lote:", e);
-                showMessage("Error al guardar las solicitudes en la base de datos.", 'error');
+                showMessage(e.message || "Error al guardar las solicitudes.", 'error');
             }
-            renderCalendar(); 
+
+            renderCalendar('student-calendar', 'student-week-display'); 
         };
         
         window.updateRequestStatus = async (slotId, newStatus) => {
-            // ... (Función sin cambios, se omite por brevedad) ...
             if (userRole !== 'admin') { return; }
             const docRef = doc(db, COLLECTION_PATH, slotId);
             try {
                 if (newStatus === 'rejected') {
-                    await setDoc(docRef, { status: 'rejected', group: null, representative: null, timestamp: serverTimestamp() }, { merge: true });
-                    showMessage(`Solicitud ${slotId.split('_')[0]} ha sido RECHAZADA.`, 'info');
+                    await setDoc(docRef, { status: 'rejected', group: null, representative: null, color: null, timestamp: serverTimestamp() }, { merge: true });
+                    showMessage(`Solicitud rechazada.`, 'info');
                 } else if (newStatus === 'approved') {
-                    const currentRes = reservations.find(r => r.id === slotId);
-                    if (currentRes && currentRes.status === 'approved') {
-                         showMessage("Error: El turno ya fue aprobado por otro admin.", 'error');
-                         return;
-                    }
                     await setDoc(docRef, { status: 'approved', timestamp: serverTimestamp() }, { merge: true });
-                    showMessage(`Solicitud ${slotId.split('_')[0]} ha sido APROBADA.`, 'success');
+                    showMessage(`Solicitud aprobada.`, 'success');
                 }
             } catch (e) {
                 console.error(`Error al actualizar el estado a ${newStatus}:`, e);
@@ -776,61 +832,50 @@
 
         // --- FUNCIONES NUEVAS Y REACTIVADAS ---
 
-        // (REACTIVADA) Navegación de Semana
         window.changeWeek = (offset) => {
             currentWeekOffset += offset;
-            renderCalendar();
-        };
-
-        // (NUEVA) Renderiza los toggles para el Admin
-        function renderAdminScheduleConfig() {
-            const container = document.getElementById('admin-schedule-config');
-            container.innerHTML = '';
-            
-            HOUR_SLOTS.forEach(slot => {
-                const hour = slot.data;
-                const label = slot.label;
-                const isEnabled = availableHoursConfig.includes(hour);
-                
-                const toggleEl = document.createElement('div');
-                toggleEl.className = 'flex items-center justify-between p-3 bg-gray-100 rounded-lg';
-                toggleEl.innerHTML = `
-                    <span class="font-medium text-gray-700">${label}</span>
-                    <label class="switch">
-                        <input type="checkbox" data-hour="${hour}" ${isEnabled ? 'checked' : ''}>
-                        <span class="slider"></span>
-                    </label>
-                `;
-                container.appendChild(toggleEl);
-            });
-        }
-        
-        // (NUEVA) Guarda la configuración del Admin
-        window.saveScheduleConfig = async () => {
-            if (userRole !== 'admin') return;
-            
-            const newEnabledHours = [];
-            const toggles = document.querySelectorAll('#admin-schedule-config input[type="checkbox"]');
-            
-            toggles.forEach(toggle => {
-                if (toggle.checked) {
-                    newEnabledHours.push(toggle.dataset.hour);
-                }
-            });
-            
-            try {
-                const configDocRef = doc(db, SCHEDULE_CONFIG_PATH, 'global');
-                await setDoc(configDocRef, { enabledHours: newEnabledHours });
-                showMessage("Configuración de horario guardada con éxito.", 'success');
-                // El listener 'initializeScheduleListener' actualizará 'availableHoursConfig' automáticamente
-            } catch (e) {
-                console.error("Error al guardar la configuración:", e);
-                showMessage("Error al guardar la configuración de horario.", 'error');
+            if (userRole === 'admin') {
+                renderCalendar('admin-calendar', 'admin-week-display');
+            } else {
+                renderCalendar('student-calendar', 'student-week-display');
             }
         };
 
-        window.toggleLoginFields = () => {
-             // Ya no es necesario, los campos son los mismos
+        window.adminToggleBlock = async (slotEl, date, hour) => {
+            if (userRole !== 'admin') return;
+
+            const slotId = formatReservationId(date, hour);
+            const dateISO = date.toISOString().split('T')[0];
+            const docRef = doc(db, COLLECTION_PATH, slotId);
+
+            const existingReservation = reservations.find(r => r.id === slotId);
+
+            try {
+                if (existingReservation && existingReservation.status === 'blocked') {
+                    if (!window.confirm("¿Desbloquear este horario para la semana?")) return;
+                    await deleteDoc(docRef);
+                    showMessage("Horario desbloqueado.", 'success');
+                } else if (!existingReservation || existingReservation.status === 'rejected') {
+                    if (!window.confirm("¿Bloquear este horario para la semana?")) return;
+                    const blockData = {
+                        id: slotId,
+                        date: dateISO,
+                        hour: hour,
+                        group: "ADMIN",
+                        color: "gray",
+                        representative: auth.currentUser.email,
+                        status: 'blocked',
+                        timestamp: serverTimestamp(),
+                    };
+                    await setDoc(docRef, blockData);
+                    showMessage("Horario bloqueado.", 'info');
+                } else {
+                    showMessage("No se puede bloquear un turno que ya está solicitado o aprobado. Rechaza la solicitud primero.", 'error');
+                }
+            } catch (e) {
+                console.error("Error al bloquear/desbloquear:", e);
+                showMessage("Error al actualizar el horario.", 'error');
+            }
         };
 
     </script>
