@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale-1.0">
     <title>Sistema de Gestión de Turnos - Laboratorio de Redes</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
@@ -47,6 +47,8 @@
         .slot-disabled { background-color: #e5e7eb; color: #9ca3af; cursor: not-allowed; }
         .slot-free { background-color: #d1fae5; color: #065f46; border-color: #a7f3d0; }
         .slot-free:hover { background-color: #a7f3d0; }
+        
+        /* Estilo de Selección Múltiple (para Admin y Estudiante) */
         .slot-selected { 
             background-color: #3b82f6 !important; /* Usar important para sobreescribir colores de grupo */
             color: white !important; 
@@ -87,7 +89,7 @@
 <body class="min-h-screen flex items-center justify-center p-4">
 
     <!-- Contenedor Principal -->
-    <div id="app-container" class="w-full max-w-5xl">
+    <div id="app-container" class="w-full max-w-6xl"> <!-- Aumentado a max-w-6xl -->
 
         <!-- Vista de Login -->
         <div id="login-view" class="card max-w-lg mx-auto">
@@ -120,20 +122,14 @@
                 </div>
             </header>
             
-            <!-- Contenido del Panel: Administrador -->
-            <div id="admin-panel" class="hidden card mt-4 space-y-8">
-                <div>
-                    <h2 class="text-2xl font-semibold mb-4 text-gray-700">Gestión de Solicitudes Pendientes</h2>
-                    <div id="requests-list" class="space-y-4">
-                        <p class="text-gray-500">Cargando solicitudes...</p>
-                    </div>
-                </div>
+            <!-- Contenido del Panel: Administrador (NUEVO LAYOUT DE 2 COLUMNAS) -->
+            <div id="admin-panel" class="hidden card mt-4 grid grid-cols-1 lg:grid-cols-3 gap-8">
                 
-                <!-- CALENDARIO DE ADMIN PARA BLOQUEAR -->
-                <div>
-                    <h2 class="text-2xl font-semibold mb-4 text-gray-700">Gestión de Horario Semanal (Bloquear/Desbloquear)</h2>
-                    <p class="text-sm text-gray-500 mb-4">
-                        Haz clic en un slot "Libre" para bloquearlo en esta semana. Haz clic en un slot "Bloqueado" para liberarlo.
+                <!-- Columna Izquierda: Calendario de Admin -->
+                <div class="lg:col-span-2 space-y-4">
+                    <h2 class="text-2xl font-semibold text-gray-700">Gestión de Horario Semanal</h2>
+                    <p class="text-sm text-gray-500">
+                        Selecciona múltiples slots (Libres o Bloqueados) y usa los botones de acción.
                     </p>
                     
                     <div class="flex justify-between items-center mb-4">
@@ -146,15 +142,30 @@
                         </button>
                     </div>
 
-                    <div class="card overflow-x-auto p-2">
+                    <!-- Barra de Acción Admin (NUEVA) -->
+                    <div id="admin-action-box" class="p-4 bg-gray-100 rounded-lg flex gap-4 hidden">
+                        <button id="admin-block-btn" onclick="adminSubmitBatch('blocked')" class="btn btn-danger w-full">Bloquear (0)</button>
+                        <button id="admin-unblock-btn" onclick="adminSubmitBatch('unblock')" class="btn btn-secondary w-full">Desbloquear (0)</button>
+                    </div>
+
+                    <div class="card overflow-x-auto p-2 border">
                         <div id="admin-calendar" class="calendar-grid min-w-max">
                             <!-- Generado por JS -->
                         </div>
                     </div>
                 </div>
+
+                <!-- Columna Derecha: Aprobaciones -->
+                <div class="lg:col-span-1 space-y-4">
+                    <h2 class="text-2xl font-semibold text-gray-700">Solicitudes Pendientes</h2>
+                    <div id="requests-list" class="space-y-4 max-h-[80vh] overflow-y-auto">
+                        <p class="text-gray-500">Cargando solicitudes...</p>
+                    </div>
+                </div>
+
             </div>
 
-            <!-- Contenido del Panel: Estudiante -->
+            <!-- Contenido del Panel: Estudiante (Sin cambios de layout) -->
             <div id="student-panel" class="hidden mt-4">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-2xl font-semibold text-gray-700">Reservar Turno (Lun-Vie)</h2>
@@ -170,13 +181,13 @@
                     </div>
                 </div>
 
-                <div class="card overflow-x-auto p-2">
+                <div class="card overflow-x-auto p-2 border">
                     <div id="student-calendar" class="calendar-grid min-w-max">
                         <!-- Generado por JS -->
                     </div>
                 </div>
 
-                <!-- LEYENDA DE ESTADOS (Añadida) -->
+                <!-- LEYENDA DE ESTADOS -->
                 <div id="student-legend" class="mt-6 card p-4">
                     <h4 class="text-lg font-semibold mb-3 text-center text-gray-700">Leyenda</h4>
                     <div class="flex flex-wrap gap-x-6 gap-y-2 justify-center">
@@ -241,7 +252,7 @@
             getFirestore, 
             doc, 
             setDoc, 
-            deleteDoc, // <-- Importar deleteDoc
+            deleteDoc, 
             onSnapshot, 
             collection, 
             query, 
@@ -269,16 +280,16 @@
         // Estado Global
         let userId = null;
         let userRole = null;
-        let currentGroup = null; // <-- Ahora será un objeto { name, color }
+        let currentGroup = null; // <-- { name, color }
         let currentRepName = null;
         let reservations = []; 
         let authReady = false;
-        let selectedSlots = []; 
+        let studentSelectedSlots = []; // <-- renombrado para claridad
+        let adminSelectedSlots = []; // <-- NUEVO ESTADO PARA ADMIN
         let currentWeekOffset = 0; 
         
         // --- CONSTANTES DE AUTENTICACIÓN FIJAS (CON COLORES) ---
         const GRUPO_LIDERES = {
-            // Paleta de 7 colores
             "lider1@uni.edu": { name: "Grupo Redes A", color: "red" },
             "lider2@uni.edu": { name: "Grupo Redes B", color: "yellow" },
             "lider3@uni.edu": { name: "Grupo Control C", color: "green" },
@@ -343,10 +354,8 @@
             return `${yyyy}-${mm}-${dd}_${hour.replace(':', '-')}`;
         }
         
-        // (NUEVA) Función de utilidad para colores
         function getSlotColorClasses(colorName, status) {
             if (status === 'approved') {
-                // Aprobado: Sólido
                 const colors = {
                     red: 'bg-red-500 text-white',
                     yellow: 'bg-yellow-500 text-white',
@@ -359,7 +368,6 @@
                 };
                 return (colors[colorName] || colors.default).split(' ');
             } else {
-                // Pendiente: Claro
                 const colors = {
                     red: 'bg-red-200 text-red-800 border-red-300',
                     yellow: 'bg-yellow-200 text-yellow-800 border-yellow-300',
@@ -394,6 +402,7 @@
         // --- MANEJO DE VISTAS Y AUTENTICACIÓN ---
 
         function renderSystemView() {
+            // ... (código existente de renderSystemView, sin cambios) ...
             const loginView = document.getElementById('login-view');
             const systemView = document.getElementById('system-view');
             const adminPanel = document.getElementById('admin-panel');
@@ -404,28 +413,27 @@
             systemView.classList.add('flex', 'flex-col');
             
             document.getElementById('user-display-role').textContent = userRole === 'admin' ? 'Administración' : 'Jefe de Grupo';
-            document.getElementById('user-display-group').textContent = currentGroup.name; // <-- Usar currentGroup.name
+            document.getElementById('user-display-group').textContent = currentGroup.name; 
             document.getElementById('user-display-email').textContent = auth.currentUser.email;
 
             if (userRole === 'admin') {
                 adminPanel.classList.remove('hidden');
                 studentPanel.classList.add('hidden');
-                // Renderizar calendario del admin
                 renderCalendar('admin-calendar', 'admin-week-display');
             } else {
                 adminPanel.classList.add('hidden');
                 studentPanel.classList.remove('hidden');
-                // Renderizar calendario del estudiante
                 renderCalendar('student-calendar', 'student-week-display');
             }
         }
 
         window.handleLogin = async (e) => {
+            // ... (código existente de handleLogin, sin cambios) ...
             e.preventDefault();
             const email = document.getElementById('login-email').value.trim();
             const password = document.getElementById('login-password').value;
 
-            await signOut(auth);
+            await signOut(auth).catch(() => {}); // Limpiar sesión anterior si existe
             hideMessage(); 
 
             if (!email || !password) {
@@ -445,7 +453,7 @@
                     }
                     userRole = 'admin';
                     currentRepName = 'Admin';
-                    currentGroup = { name: 'ADMIN', color: 'gray' }; // <-- Objeto
+                    currentGroup = { name: 'ADMIN', color: 'gray' };
 
                 } else if (GRUPO_LIDERES[authenticatedEmail]) {
                      if (password !== LIDER_PASS) {
@@ -455,7 +463,7 @@
                     }
                     userRole = 'student';
                     currentRepName = authenticatedEmail;
-                    currentGroup = GRUPO_LIDERES[authenticatedEmail]; // <-- Objeto
+                    currentGroup = GRUPO_LIDERES[authenticatedEmail];
 
                 } else {
                     await signOut(auth); 
@@ -480,6 +488,7 @@
         };
 
         onAuthStateChanged(auth, (user) => {
+            // ... (código existente de onAuthStateChanged, sin cambios) ...
             if (!authReady) {
                 authReady = true;
                 initializeReservationListener();
@@ -520,6 +529,7 @@
         // --- LÓGICA DEL SISTEMA (CALENDARIO Y RESERVAS) ---
 
         function initializeReservationListener() {
+            // ... (código existente de initializeReservationListener, sin cambios) ...
             if (!authReady) return; 
             const q = collection(db, COLLECTION_PATH);
             
@@ -590,9 +600,9 @@
                         slotEl.textContent = 'Libre';
                         
                         if (userRole === 'student') {
-                            slotEl.onclick = () => handleSlotSelection(slotEl, day, hour);
+                            slotEl.onclick = () => handleSlotSelection(slotEl, day, hour, 'free');
                         } else if (userRole === 'admin') {
-                            slotEl.onclick = () => adminToggleBlock(slotEl, day, hour); 
+                            slotEl.onclick = () => adminSelectSlot(slotEl, day, hour, 'free'); // <-- MODIFICADO
                         }
                     }
                     calendarEl.appendChild(slotEl);
@@ -605,13 +615,37 @@
             const lastDay = days[days.length - 1].toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
             weekDisplayEl.textContent = `${firstDay} - ${lastDay}`;
             
+            // Limpiar selecciones al cambiar de semana
             if (userRole === 'student') {
-                selectedSlots = [];
+                studentSelectedSlots = [];
                 updateSelectionBox();
+            } else {
+                adminSelectedSlots = [];
+                updateAdminActionBox();
             }
         }
         
         function updateCalendarView() {
+            // Limpiar selecciones previas visualmente (necesario por el re-render)
+            const allSlots = document.querySelectorAll('.time-slot');
+            allSlots.forEach(slotEl => {
+                if (slotEl.classList.contains('bg-gray-200')) return; // Ignorar 'Pasado'
+                
+                // Resetear a 'Libre' antes de aplicar estados
+                slotEl.className = 'time-slot slot-free text-center';
+                slotEl.textContent = 'Libre';
+                
+                // Re-asignar clicks por defecto
+                const date = new Date(slotEl.dataset.date + 'T00:00:00');
+                const hour = slotEl.dataset.hour;
+                if (userRole === 'student') {
+                    slotEl.onclick = () => handleSlotSelection(slotEl, date, hour, 'free');
+                } else if (userRole === 'admin') {
+                    slotEl.onclick = () => adminSelectSlot(slotEl, date, hour, 'free');
+                }
+            });
+
+            // Aplicar estados desde Firestore
             reservations.forEach(res => {
                 const slotElements = document.querySelectorAll(`[data-slot-id="${res.id}"]`);
                 
@@ -620,13 +654,32 @@
                     if (slotEl.classList.contains('bg-gray-200')) return;
 
                     slotEl.className = 'time-slot';
-                    const colorName = res.color || 'gray';
+                    
+                    // --- LÓGICA DE VISUALIZACIÓN DE COLOR (Modificada) ---
+                    let colorName;
+                    if (userRole === 'admin') {
+                        // El ADMIN ve el color específico del grupo
+                        colorName = res.color || 'gray';
+                    } else {
+                        // El ESTUDIANTE ve colores genéricos que coinciden con la leyenda
+                        if (res.status === 'approved') {
+                            colorName = 'red'; // Color genérico para "Reservado" (leyenda)
+                        } else if (res.status === 'pending') {
+                            colorName = 'yellow'; // Color genérico para "Pendiente" (leyenda)
+                        } else {
+                            colorName = 'default';
+                        }
+                    }
+                    // --- FIN LÓGICA DE COLOR ---
+
+                    const date = new Date(res.date + 'T00:00:00');
+                    const hour = res.hour;
                     
                     switch (res.status) {
                         case 'approved':
                             slotEl.innerHTML = `<span class="font-bold">${res.group}</span><span class="text-xs">Reservado</span>`;
                             slotEl.classList.add(...getSlotColorClasses(colorName, 'approved'), 'cursor-not-allowed');
-                            slotEl.onclick = null;
+                            slotEl.onclick = (userRole === 'admin') ? () => adminSelectSlot(slotEl, date, hour, 'occupied') : null;
                             break;
                             
                         case 'pending':
@@ -636,9 +689,12 @@
                             if (userRole === 'student' && res.representative === currentRepName) {
                                 slotEl.classList.add('cursor-pointer'); 
                                 slotEl.onclick = () => anularSlot(res.id); 
-                            } else {
+                            } else if (userRole === 'student') {
                                 slotEl.classList.add('cursor-not-allowed');
                                 slotEl.onclick = null;
+                            } else { // Admin
+                                slotEl.classList.add('cursor-not-allowed');
+                                slotEl.onclick = () => adminSelectSlot(slotEl, date, hour, 'occupied');
                             }
                             break;
                         
@@ -648,28 +704,29 @@
                             if (userRole === 'admin') {
                                 slotEl.classList.add('cursor-pointer');
                                 slotEl.classList.remove('cursor-not-allowed');
-                                const date = new Date(res.date + 'T00:00:00'); 
-                                slotEl.onclick = () => adminToggleBlock(slotEl, date, res.hour);
+                                slotEl.onclick = () => adminSelectSlot(slotEl, date, hour, 'blocked');
                             } else {
                                 slotEl.onclick = null;
                             }
                             break;
                             
                         case 'rejected':
-                            slotEl.className = 'time-slot slot-free text-center';
-                            slotEl.textContent = 'Libre';
-                            if (userRole === 'student') {
-                                const date = new Date(res.date + 'T00:00:00');
-                                slotEl.onclick = () => handleSlotSelection(slotEl, date, res.hour);
-                            } else if (userRole === 'admin') {
-                                const date = new Date(res.date + 'T00:00:00');
-                                slotEl.onclick = () => adminToggleBlock(slotEl, date, res.hour);
-                            }
+                            // Se mantiene como 'Libre' (manejado por el reset inicial)
                             break;
                     }
                 });
             });
 
+            // Re-aplicar selección múltiple visual
+            const selectionList = (userRole === 'admin') ? adminSelectedSlots : studentSelectedSlots;
+            selectionList.forEach(slot => {
+                const slotEl = document.querySelector(`[data-slot-id="${slot.id}"]`);
+                if (slotEl) {
+                    slotEl.classList.add('slot-selected');
+                }
+            });
+
+            // Actualizar lista de admin si es admin
             if(userRole === 'admin') {
                 const listEl = document.getElementById('requests-list');
                 listEl.innerHTML = ''; 
@@ -715,21 +772,21 @@
 
         // --- LÓGICA DE SELECCIÓN MÚLTIPLE (Estudiante) ---
 
-        function handleSlotSelection(slotEl, date, hour) {
+        function handleSlotSelection(slotEl, date, hour, currentStatus) {
             const slotId = formatReservationId(date, hour);
             const dateISO = date.toISOString().split('T')[0];
             
-            if (!slotEl.classList.contains('slot-free')) {
-                return;
+            if (currentStatus !== 'free') {
+                return; // Solo se pueden seleccionar slots libres
             }
 
-            const index = selectedSlots.findIndex(slot => slot.id === slotId);
+            const index = studentSelectedSlots.findIndex(slot => slot.id === slotId);
 
             if (index > -1) {
-                selectedSlots.splice(index, 1);
+                studentSelectedSlots.splice(index, 1);
                 slotEl.classList.remove('slot-selected');
             } else {
-                selectedSlots.push({ id: slotId, date: dateISO, hour: hour });
+                studentSelectedSlots.push({ id: slotId, date: dateISO, hour: hour });
                 slotEl.classList.add('slot-selected');
             }
             
@@ -741,7 +798,8 @@
              if (!window.confirm("¿Estás seguro de que quieres anular tu solicitud de turno pendiente?")) { return; }
              const docRef = doc(db, COLLECTION_PATH, slotId);
              try {
-                await setDoc(docRef, { status: 'rejected', group: null, representative: null, color: null }, { merge: true }); 
+                // Borrar el documento es más limpio que rechazarlo
+                await deleteDoc(docRef);
                 showMessage("Solicitud anulada con éxito.", 'success');
              } catch (e) {
                 console.error("Error al anular:", e);
@@ -754,32 +812,32 @@
             const button = document.getElementById('request-button');
             if (!display || !button) return; 
             
-            if (selectedSlots.length === 0) {
+            if (studentSelectedSlots.length === 0) {
                 display.textContent = 'Selecciona uno o más horarios libres en el calendario para solicitar un turno.';
                 button.disabled = true;
                 button.textContent = 'Enviar Solicitud (0 turnos)';
             } else {
-                display.innerHTML = `<span class="font-bold">Turnos Seleccionados (${selectedSlots.length}):</span><ul class="list-disc list-inside mt-2 text-sm">`;
-                selectedSlots.forEach(slot => {
+                display.innerHTML = `<span class="font-bold">Turnos Seleccionados (${studentSelectedSlots.length}):</span><ul class="list-disc list-inside mt-2 text-sm">`;
+                studentSelectedSlots.forEach(slot => {
                     const dayStr = new Date(slot.date + 'T00:00:00').toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' });
                     display.innerHTML += `<li>${dayStr} a las ${slot.hour}</li>`;
                 });
                 display.innerHTML += `</ul>`;
                 
                 button.disabled = false;
-                button.textContent = `Enviar Solicitud (${selectedSlots.length} turnos)`;
+                button.textContent = `Enviar Solicitud (${studentSelectedSlots.length} turnos)`;
             }
         }
         
         // --- LÓGICA DE ENVÍO Y ACTUALIZACIÓN ---
         
         window.submitRequest = async () => {
-            if (selectedSlots.length === 0) { showMessage("No has seleccionado ningún turno.", 'error'); return; }
-            if (!window.confirm(`¿Estás seguro de que quieres enviar ${selectedSlots.length} solicitudes de turno?`)) { return; }
+            if (studentSelectedSlots.length === 0) { showMessage("No has seleccionado ningún turno.", 'error'); return; }
+            if (!window.confirm(`¿Estás seguro de que quieres enviar ${studentSelectedSlots.length} solicitudes de turno?`)) { return; }
 
             const batch = writeBatch(db);
             try {
-                for (const slot of selectedSlots) {
+                for (const slot of studentSelectedSlots) {
                     const slotId = slot.id;
                     const docRef = doc(db, COLLECTION_PATH, slotId);
 
@@ -792,8 +850,8 @@
                         id: slotId,
                         date: slot.date,
                         hour: slot.hour,
-                        group: currentGroup.name, // <-- Guardar nombre
-                        color: currentGroup.color, // <-- GUARDAR COLOR
+                        group: currentGroup.name,
+                        color: currentGroup.color,
                         representative: currentRepName,
                         status: 'pending',
                         timestamp: serverTimestamp(),
@@ -803,14 +861,17 @@
                 }
                 
                 await batch.commit();
-                showMessage(`¡${selectedSlots.length} solicitudes enviadas con éxito! Esperando aprobación.`, 'success');
+                showMessage(`¡${studentSelectedSlots.length} solicitudes enviadas con éxito! Esperando aprobación.`, 'success');
                 
             } catch (e) {
                 console.error("Error al enviar las solicitudes en lote:", e);
                 showMessage(e.message || "Error al guardar las solicitudes.", 'error');
             }
 
-            renderCalendar('student-calendar', 'student-week-display'); 
+            // Limpiar selección después de enviar
+            studentSelectedSlots = [];
+            updateSelectionBox();
+            updateCalendarView(); // Forzar re-renderizado
         };
         
         window.updateRequestStatus = async (slotId, newStatus) => {
@@ -818,8 +879,9 @@
             const docRef = doc(db, COLLECTION_PATH, slotId);
             try {
                 if (newStatus === 'rejected') {
-                    await setDoc(docRef, { status: 'rejected', group: null, representative: null, color: null, timestamp: serverTimestamp() }, { merge: true });
-                    showMessage(`Solicitud rechazada.`, 'info');
+                    // Al rechazar, borramos el documento para que el slot vuelva a estar libre
+                    await deleteDoc(docRef);
+                    showMessage(`Solicitud rechazada. El slot vuelve a estar libre.`, 'info');
                 } else if (newStatus === 'approved') {
                     await setDoc(docRef, { status: 'approved', timestamp: serverTimestamp() }, { merge: true });
                     showMessage(`Solicitud aprobada.`, 'success');
@@ -834,48 +896,107 @@
 
         window.changeWeek = (offset) => {
             currentWeekOffset += offset;
-            if (userRole === 'admin') {
-                renderCalendar('admin-calendar', 'admin-week-display');
-            } else {
-                renderCalendar('student-calendar', 'student-week-display');
-            }
+            const calendarId = (userRole === 'admin') ? 'admin-calendar' : 'student-calendar';
+            const weekId = (userRole === 'admin') ? 'admin-week-display' : 'student-week-display';
+            renderCalendar(calendarId, weekId);
         };
 
-        window.adminToggleBlock = async (slotEl, date, hour) => {
-            if (userRole !== 'admin') return;
+        // --- NUEVA LÓGICA DE ADMIN (SELECCIÓN MÚLTIPLE) ---
 
+        window.adminSelectSlot = (slotEl, date, hour, currentStatus) => {
+            if (currentStatus === 'occupied') {
+                showMessage("No se puede seleccionar un turno pendiente o aprobado.", "info");
+                return;
+            }
+            
             const slotId = formatReservationId(date, hour);
             const dateISO = date.toISOString().split('T')[0];
-            const docRef = doc(db, COLLECTION_PATH, slotId);
+            const index = adminSelectedSlots.findIndex(s => s.id === slotId);
 
-            const existingReservation = reservations.find(r => r.id === slotId);
-
-            try {
-                if (existingReservation && existingReservation.status === 'blocked') {
-                    if (!window.confirm("¿Desbloquear este horario para la semana?")) return;
-                    await deleteDoc(docRef);
-                    showMessage("Horario desbloqueado.", 'success');
-                } else if (!existingReservation || existingReservation.status === 'rejected') {
-                    if (!window.confirm("¿Bloquear este horario para la semana?")) return;
-                    const blockData = {
-                        id: slotId,
-                        date: dateISO,
-                        hour: hour,
-                        group: "ADMIN",
-                        color: "gray",
-                        representative: auth.currentUser.email,
-                        status: 'blocked',
-                        timestamp: serverTimestamp(),
-                    };
-                    await setDoc(docRef, blockData);
-                    showMessage("Horario bloqueado.", 'info');
-                } else {
-                    showMessage("No se puede bloquear un turno que ya está solicitado o aprobado. Rechaza la solicitud primero.", 'error');
-                }
-            } catch (e) {
-                console.error("Error al bloquear/desbloquear:", e);
-                showMessage("Error al actualizar el horario.", 'error');
+            if (index > -1) {
+                adminSelectedSlots.splice(index, 1);
+                slotEl.classList.remove('slot-selected');
+            } else {
+                adminSelectedSlots.push({ id: slotId, date: dateISO, hour: hour, status: currentStatus });
+                slotEl.classList.add('slot-selected');
             }
+            updateAdminActionBox();
+        };
+
+        function updateAdminActionBox() {
+            const box = document.getElementById('admin-action-box');
+            if (!box) return;
+
+            const blockBtn = document.getElementById('admin-block-btn');
+            const unblockBtn = document.getElementById('admin-unblock-btn');
+            const selectedCount = adminSelectedSlots.length;
+
+            if (selectedCount === 0) {
+                box.classList.add('hidden');
+            } else {
+                box.classList.remove('hidden');
+                
+                // Contar cuántos son "libres" (para bloquear) y cuántos son "bloqueados" (para desbloquear)
+                const freeToBlock = adminSelectedSlots.filter(s => s.status === 'free').length;
+                const blockedToUnblock = adminSelectedSlots.filter(s => s.status === 'blocked').length;
+
+                blockBtn.textContent = `Bloquear (${freeToBlock})`;
+                unblockBtn.textContent = `Desbloquear (${blockedToUnblock})`;
+                
+                blockBtn.disabled = freeToBlock === 0;
+                unblockBtn.disabled = blockedToUnblock === 0;
+            }
+        }
+        
+        window.adminSubmitBatch = async (action) => {
+            const slotsToProcess = adminSelectedSlots.filter(s => 
+                (action === 'blocked' && s.status === 'free') || 
+                (action === 'unblock' && s.status === 'blocked')
+            );
+
+            if (slotsToProcess.length === 0) {
+                showMessage(`No hay slots seleccionados que sean ${action === 'blocked' ? 'libres' : 'bloqueados'}.`, 'info');
+                return;
+            }
+
+            if (!window.confirm(`¿Estás seguro de que quieres ${action === 'blocked' ? 'BLOQUEAR' : 'DESBLOQUEAR'} ${slotsToProcess.length} turnos?`)) return;
+
+            const batch = writeBatch(db);
+            try {
+                for (const slot of slotsToProcess) {
+                    const docRef = doc(db, COLLECTION_PATH, slot.id);
+
+                    if (action === 'blocked') {
+                        const blockData = {
+                            id: slot.id,
+                            date: slot.date,
+                            hour: slot.hour,
+                            group: "ADMIN",
+                            color: "gray",
+                            representative: auth.currentUser.email,
+                            status: 'blocked',
+                            timestamp: serverTimestamp(),
+                        };
+                        batch.set(docRef, blockData);
+                    } else if (action === 'unblock') {
+                        batch.delete(docRef);
+                    }
+                }
+                
+                await batch.commit();
+                showMessage(`¡${slotsToProcess.length} turnos actualizados con éxito!`, 'success');
+                
+            } catch (e) {
+                console.error("Error al actualizar horarios en lote:", e);
+                showMessage(e.message || "Error al guardar los cambios.", 'error');
+            }
+
+            // Limpiar selección después de enviar
+            adminSelectedSlots = [];
+            // Quitar el resaltado visual de todos los slots
+            document.querySelectorAll('.slot-selected').forEach(el => el.classList.remove('slot-selected'));
+            updateAdminActionBox();
+            // El onSnapshot actualizará la vista
         };
 
     </script>
