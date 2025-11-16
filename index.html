@@ -7,21 +7,54 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        /* Estilos base, fuentes e interactividad */
+        /* Estilos base, fuentes e interactividad mejorados */
         body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
         .card { background: white; border-radius: 1rem; box-shadow: 0 10px 15px rgba(0, 0, 0, 0.05); padding: 1.5rem; }
+        
+        /* Cuadrícula de 6 columnas: 1 para Hora + 5 para Días (Lun-Vie) */
         .calendar-grid { 
             display: grid; 
-            grid-template-columns: repeat(9, minmax(80px, 1fr)); /* Columna de Día + 8 Horas */
+            grid-template-columns: 1.5fr repeat(5, 1fr); /* Columna de hora más ancha */
             gap: 4px; 
             font-size: 0.8rem;
         }
-        .time-slot { padding: 0.5rem; text-align: center; border-radius: 0.5rem; cursor: pointer; transition: all 0.2s; height: 60px; display: flex; flex-direction: column; justify-content: center; align-items: center; line-height: 1.2; }
-        .slot-free { background-color: #d1fae5; color: #065f46; }
-        .slot-pending { background-color: #fef3c7; color: #92400e; }
-        .slot-approved { background-color: #fee2e2; color: #991b1b; cursor: not-allowed; }
-        .slot-selected { background-color: #3b82f6; color: white; box-shadow: 0 4px 6px rgba(59, 130, 246, 0.5); }
-        .slot-header { font-weight: bold; background-color: #e5e7eb; padding: 0.5rem; border-radius: 0.5rem; display: flex; justify-content: center; align-items: center; }
+        .time-slot { 
+            padding: 0.5rem; 
+            text-align: center; 
+            border-radius: 0.5rem; 
+            cursor: pointer; 
+            transition: all 0.2s; 
+            height: 60px; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            line-height: 1.2; 
+        }
+        
+        /* Estilos de Slots */
+        .slot-free { background-color: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+        .slot-free:hover { background-color: #a7f3d0; }
+        .slot-pending { background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+        .slot-pending:hover { background-color: #fde68a; }
+        .slot-approved { background-color: #fee2e2; color: #991b1b; border: 1px solid #fecaca; cursor: not-allowed; }
+        .slot-selected { 
+            background-color: #3b82f6; 
+            color: white; 
+            box-shadow: 0 4px 6px rgba(59, 130, 246, 0.5); 
+            transform: scale(1.03); 
+            border: 1px solid #3b82f6;
+        }
+        .slot-header { 
+            font-weight: bold; 
+            background-color: #e5e7eb; 
+            padding: 0.5rem; 
+            border-radius: 0.5rem; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 60px;
+        }
         
         .btn-primary {
             background-color: #4f46e5;
@@ -35,6 +68,11 @@
         .btn-primary:hover {
             background-color: #4338ca;
             box-shadow: 0 6px 8px rgba(79, 70, 229, 0.4);
+        }
+        .btn-primary:disabled {
+            background-color: #a5b4fc;
+            cursor: not-allowed;
+            box-shadow: none;
         }
     </style>
 </head>
@@ -95,16 +133,9 @@
 
             <!-- Contenido del Panel: Estudiante -->
             <div id="student-panel" class="hidden mt-4">
-                <h2 class="text-2xl font-semibold mb-4 text-gray-700">Reservar Turno de Laboratorio (13:00 - 20:00)</h2>
-                
                 <div class="flex justify-between items-center mb-4">
-                    <button onclick="changeWeek(-1)" class="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition duration-150">
-                        &lt; Semana Anterior
-                    </button>
-                    <span id="week-display" class="font-bold text-lg text-gray-700"></span>
-                    <button onclick="changeWeek(1)" class="p-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition duration-150">
-                        Semana Siguiente &gt;
-                    </button>
+                    <h2 class="text-2xl font-semibold text-gray-700">Reservar Turno de Laboratorio (13:00 - 20:00)</h2>
+                     <span id="week-display" class="font-bold text-lg text-gray-700">Semana Actual</span>
                 </div>
 
                 <!-- Calendario de Turnos -->
@@ -117,10 +148,10 @@
                 <div class="mt-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg shadow-md">
                     <h3 class="text-xl font-semibold mb-2 text-yellow-800">Solicitud de Turno</h3>
                     <p id="selected-slot-display" class="mb-4 text-gray-700">
-                        Selecciona un horario libre en el calendario para solicitar un turno.
+                        Selecciona uno o más horarios libres en el calendario para solicitar un turno.
                     </p>
                     <button id="request-button" onclick="submitRequest()" class="btn-primary" disabled>
-                        Enviar Solicitud de Reserva
+                        Enviar Solicitud (0 turnos)
                     </button>
                 </div>
             </div>
@@ -146,10 +177,10 @@
             collection, 
             query, 
             serverTimestamp,
-            getDocs
+            writeBatch // Usaremos 'writeBatch' para solicitudes múltiples
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
-        // Configuración de la aplicación (Se asume que estas variables están definidas en el entorno o en el archivo)
+        // Configuración de la aplicación
         const appId = 'lab-redes-turnos'; 
         const firebaseConfig = {
             apiKey: "AIzaSyCR4Kk7kIBpSW3cF02b8zUHegvV4WQNuyI",
@@ -164,22 +195,20 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
         
-        // Usamos persistencia local para mantener al usuario logueado
         setPersistence(auth, browserLocalPersistence);
 
+        // Estado Global
         let userId = null;
         let userRole = null;
         let currentGroup = null;
         let currentRepName = null;
-        let selectedDate = null;
-        let selectedHour = null;
-        let currentWeekOffset = 0;
         let reservations = []; // Caché local de reservas
         let authReady = false;
-
-        // --- CONSTANTES DE AUTENTICACIÓN FIJAS (CREADAS MANUALMENTE EN FIREBASE) ---
         
-        // Mapa de líderes de grupo (USO PARA ASIGNAR EL GRUPO UNA VEZ AUTENTICADO)
+        // --- NUEVO ESTADO PARA SELECCIÓN MÚLTIPLE ---
+        let selectedSlots = []; // Almacena {id, date, hour}
+
+        // --- CONSTANTES DE AUTENTICACIÓN FIJAS ---
         const GRUPO_LIDERES = {
             "lider1@uni.edu": "Grupo Redes A",
             "lider2@uni.edu": "Grupo Redes B",
@@ -189,17 +218,26 @@
             "lider6@uni.edu": "Grupo Pruebas F",
             "lider7@uni.edu": "Grupo Final G",
         };
-        const LIDER_PASS = 'pass123'; // Contraseña compartida para líderes
-
-        // Emails de administradores (USO PARA ASIGNAR EL ROL ADMIN)
+        const LIDER_PASS = 'pass123'; 
         const ADMIN_CREDENTIALS = {
             "admin1@lab.edu": true,
             "admin2@lab.edu": true,
         };
-        const ADMIN_PASS = 'adminpass'; // Contraseña compartida para admins
+        const ADMIN_PASS = 'adminpass'; 
 
-        const HOURS = ['13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'];
-        // Usamos la ruta de la base de datos pública definida por las reglas
+        // --- CONSTANTES DEL CALENDARIO (MODIFICADAS) ---
+        // Array de objetos para la columna de horas
+        const HOUR_SLOTS = [
+            { label: '13:00 - 14:00', data: '13:00' },
+            { label: '14:00 - 15:00', data: '14:00' },
+            { label: '15:00 - 16:00', data: '15:00' },
+            { label: '16:00 - 17:00', data: '16:00' },
+            { label: '17:00 - 18:00', data: '17:00' },
+            { label: '18:00 - 19:00', data: '18:00' },
+            { label: '19:00 - 20:00', data: '19:00' },
+            { label: '20:00 - 21:00', data: '20:00' } // Nota: La lógica de horas se basa en la hora de inicio (20:00)
+        ];
+        
         const COLLECTION_PATH = `artifacts/${appId}/public/data/reservations`;
 
         // --- UTILIDADES ---
@@ -217,11 +255,9 @@
             };
             box.classList.add(...classMap[type]);
             
-            // Ocultar el mensaje después de 5 segundos
             setTimeout(() => box.classList.add('hidden'), 5000);
         }
 
-        // *** FUNCIÓN AÑADIDA PARA CORREGIR EL ERROR ***
         function hideMessage() {
             document.getElementById('message-box').classList.add('hidden');
         }
@@ -230,19 +266,22 @@
             const yyyy = date.getFullYear();
             const mm = String(date.getMonth() + 1).padStart(2, '0');
             const dd = String(date.getDate()).padStart(2, '0');
+            // Usamos la hora de inicio (ej: 13:00) para el ID
             return `${yyyy}-${mm}-${dd}_${hour.replace(':', '-')}`;
         }
 
-        function getWeekDays(offset) {
+        // --- LÓGICA DE CALENDARIO (MODIFICADA) ---
+
+        // Devuelve 5 días (Lun-Vie) de la semana actual
+        function getWeekDays() {
             const days = [];
             const today = new Date();
-            // Asegurarse que la semana empieza en Lunes (1)
             const dayOfWeek = today.getDay(); 
-            const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+            const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Lunes = 1, Domingo = 0
             
-            today.setDate(today.getDate() + diff + (offset * 7));
+            today.setDate(today.getDate() + diff); // Ir a Lunes
 
-            for (let i = 0; i < 7; i++) {
+            for (let i = 0; i < 5; i++) { // Bucle de 5 días
                 const date = new Date(today);
                 date.setDate(today.getDate() + i);
                 days.push(date);
@@ -250,7 +289,7 @@
             return days;
         }
         
-        // --- MANEJO DE VISTAS Y AUTENTICACIÓN ---
+        // --- MANEJO DE VISTAS Y AUTENTICACIÓN (Sin cambios mayores) ---
 
         function renderSystemView() {
             const loginView = document.getElementById('login-view');
@@ -266,11 +305,10 @@
             document.getElementById('user-display-group').textContent = currentGroup;
             document.getElementById('user-display-email').textContent = auth.currentUser.email;
 
-            // Cargar el panel correspondiente al rol
             if (userRole === 'admin') {
                 adminPanel.classList.remove('hidden');
                 studentPanel.classList.add('hidden');
-                updateCalendarView(); // El admin también ve el calendario y la lista
+                updateCalendarView(); 
             } else {
                 adminPanel.classList.add('hidden');
                 studentPanel.classList.remove('hidden');
@@ -284,10 +322,8 @@
             const email = document.getElementById('login-email').value.trim();
             const password = document.getElementById('login-password').value;
 
-            // 1. Limpiamos cualquier sesión antigua
-            // (Si no hay sesión, no hace nada)
             await signOut(auth);
-            hideMessage(); // <--- Esta línea ahora funciona
+            hideMessage(); 
 
             if (!email || !password) {
                 showMessage("Por favor, introduce tu correo y contraseña.", 'error');
@@ -295,13 +331,10 @@
             }
 
             try {
-                // 2. Autenticación con Firebase Email/Password
                 const userCredential = await signInWithEmailAndPassword(auth, email, password);
                 const authenticatedEmail = userCredential.user.email;
 
-                // 3. Asignación de Rol
                 if (ADMIN_CREDENTIALS[authenticatedEmail]) {
-                    // Validar contraseña de Admin
                     if (password !== ADMIN_PASS) {
                          await signOut(auth);
                          showMessage("Contraseña de Administrador incorrecta.", 'error');
@@ -312,7 +345,6 @@
                     currentGroup = 'ADMIN';
 
                 } else if (GRUPO_LIDERES[authenticatedEmail]) {
-                    // Validar contraseña de Líder
                      if (password !== LIDER_PASS) {
                          await signOut(auth);
                          showMessage("Contraseña de Jefe de Grupo incorrecta.", 'error');
@@ -323,14 +355,10 @@
                     currentGroup = GRUPO_LIDERES[authenticatedEmail];
 
                 } else {
-                    // Usuario autenticado en Firebase, pero no en nuestros mapas
                     await signOut(auth); 
                     showMessage("Usuario autenticado, pero no está registrado como Jefe de Grupo o Administrador.", 'error');
                     return;
                 }
-                
-                // onAuthStateChanged se disparará automáticamente al haber una sesión activa.
-
             } catch (error) {
                 console.error("Error de autenticación:", error.code, error.message);
                 let errorMessage = "Error de credenciales. Revisa tu Correo y Contraseña.";
@@ -345,12 +373,11 @@
 
         window.handleLogout = async () => {
             await signOut(auth);
-            window.location.reload(); // Recarga la página para limpiar todo el estado
+            window.location.reload(); 
         };
 
         onAuthStateChanged(auth, (user) => {
             if (!authReady) {
-                // El primer chequeo de auth (al cargar la página)
                 authReady = true;
                 initializeDatabaseListener();
             }
@@ -359,8 +386,6 @@
             const systemView = document.getElementById('system-view');
 
             if (user) {
-                // Si el usuario recarga la página (sesión persistente)
-                // Re-asignamos los roles basados en el email
                 if (!userRole) { 
                     const email = user.email;
                     if (ADMIN_CREDENTIALS[email]) {
@@ -372,7 +397,7 @@
                         currentGroup = GRUPO_LIDERES[email];
                         currentRepName = email;
                     } else {
-                        signOut(auth); // Usuario desconocido, forzar cierre de sesión
+                        signOut(auth); 
                         return;
                     }
                 }
@@ -380,7 +405,6 @@
                 loginView.classList.add('hidden');
                 renderSystemView();
             } else {
-                // No hay usuario logueado o la sesión ha terminado.
                 userId = null;
                 userRole = null;
                 currentGroup = null;
@@ -393,44 +417,42 @@
         // --- LÓGICA DEL SISTEMA (CALENDARIO Y RESERVAS) ---
 
         function initializeDatabaseListener() {
-            if (!authReady) return; // No escuchar hasta que la auth esté lista
+            if (!authReady) return; 
 
             const q = collection(db, COLLECTION_PATH);
             
-            // onSnapshot es la clave de la sincronización en tiempo real.
             onSnapshot(q, (snapshot) => {
                 reservations = [];
                 snapshot.forEach((doc) => {
                     reservations.push({ id: doc.id, ...doc.data() });
                 });
                 
-                // Solo renderiza si ya estamos en la vista del sistema
                 if (document.getElementById('login-view').classList.contains('hidden')) {
                     if (userRole === 'student') {
-                        renderCalendar(); // El estudiante necesita un re-renderizado completo
+                        renderCalendar();
                     } else if (userRole === 'admin') {
-                        updateCalendarView(); // El admin solo necesita actualizar la lista
+                        updateCalendarView();
                     }
                 }
             }, (error) => {
                 console.error("Error al escuchar la base de datos:", error);
-                // No mostramos el error en el login si ya estamos dentro
                 if (!document.getElementById('login-view').classList.contains('hidden')) {
                      showMessage("Error al cargar la base de datos de turnos.", 'error');
                 }
             });
         }
 
+        // --- RENDERIZADO DEL CALENDARIO (MODIFICADO) ---
         function renderCalendar() {
             const calendarEl = document.getElementById('calendar');
             calendarEl.innerHTML = '';
             
-            const days = getWeekDays(currentWeekOffset);
+            const days = getWeekDays(); // Solo 5 días, sin offset
             
-            // 1. Cabecera de Días
+            // 1. Cabecera de Días (Corregida)
             const corner = document.createElement('div');
             corner.className = 'slot-header text-center';
-            corner.textContent = 'Hora';
+            corner.textContent = 'Hora'; // Arregla la esquina desconfigurada
             calendarEl.appendChild(corner);
             
             days.forEach(day => {
@@ -440,14 +462,15 @@
                 calendarEl.appendChild(dayHeader);
             });
 
-            // 2. Slots por Hora
-            HOURS.forEach(hour => {
+            // 2. Slots por Hora (Usando HOUR_SLOTS)
+            HOUR_SLOTS.forEach(slot => {
                 const hourHeader = document.createElement('div');
                 hourHeader.className = 'slot-header';
-                hourHeader.textContent = hour;
+                hourHeader.textContent = slot.label; // Ej: "13:00 - 14:00"
                 calendarEl.appendChild(hourHeader);
 
                 days.forEach(day => {
+                    const hour = slot.data; // Ej: "13:00"
                     const slotId = formatReservationId(day, hour);
                     const slotEl = document.createElement('div');
                     slotEl.className = 'time-slot slot-free text-center';
@@ -458,7 +481,6 @@
                     
                     const slotDateHour = new Date(day.toISOString().split('T')[0] + 'T' + hour + ':00');
                     
-                    // Deshabilitar slots pasados
                     if (slotDateHour < new Date()) {
                         slotEl.textContent = 'Pasado';
                         slotEl.classList.remove('slot-free', 'cursor-pointer');
@@ -475,18 +497,20 @@
             // 3. Actualizar la vista con las reservas
             updateCalendarView();
             
-            // 4. Actualizar el rango de la semana
-            const firstDay = days[0].toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
-            const lastDay = days[days.length - 1].toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
-            document.getElementById('week-display').textContent = `Semana: ${firstDay} - ${lastDay}`;
-
+            // 4. Actualizar el rango de la semana (Opcional, ya no se cambia)
+            document.getElementById('week-display').textContent = `Semana Actual (Lun - Vie)`;
+            
+            // 5. Limpiar selección múltiple al re-renderizar
+            selectedSlots = [];
+            updateSelectionBox();
         }
         
-        // Actualiza el calendario y la lista del admin
         function updateCalendarView() {
-            document.getElementById('requests-list').innerHTML = ''; // Limpiar lista de Admin
-            let hasPendingRequests = false;
+            if(userRole === 'admin') {
+                document.getElementById('requests-list').innerHTML = ''; 
+            }
             
+            let hasPendingRequests = false;
             const now = new Date();
 
             const activeReservations = reservations.filter(res => res.status === 'pending' || res.status === 'approved');
@@ -494,10 +518,8 @@
             activeReservations.forEach(res => {
                 const slotEl = document.querySelector(`[data-slot-id="${res.id}"]`);
                 
-                // Renderizado de Slots
                 if (slotEl) {
                     slotEl.className = 'time-slot'; // Reset
-                    
                     const slotDateHour = new Date(res.date + 'T' + res.hour + ':00');
 
                     if (slotDateHour < now) {
@@ -514,9 +536,11 @@
                             case 'pending':
                                 slotEl.innerHTML = `<span class="font-bold">${res.group}</span><span class="text-xs">Pendiente</span>`;
                                 slotEl.classList.add('slot-pending');
+                                // Si es MI solicitud pendiente (Estudiante)
                                 if (userRole === 'student' && res.representative === currentRepName) {
                                      slotEl.classList.add('cursor-pointer');
-                                     slotEl.onclick = () => handleSlotSelection(slotEl, new Date(res.date), res.hour);
+                                     // Al hacer clic en una pendiente mía, se ANULA
+                                     slotEl.onclick = () => anularSlot(res.id); 
                                 } else {
                                      slotEl.classList.add('cursor-not-allowed');
                                      slotEl.onclick = null;
@@ -541,11 +565,9 @@
         function renderAdminRequest(request) {
             const listEl = document.getElementById('requests-list');
             const requestEl = document.createElement('div');
-            
             const dateStr = new Date(request.date).toLocaleDateString('es-ES', { month: 'long', day: 'numeric' });
             
             requestEl.className = 'p-4 border border-yellow-300 bg-yellow-50 rounded-lg shadow-sm flex justify-between items-center flex-wrap gap-2';
-            
             requestEl.innerHTML = `
                 <div class="flex-grow">
                     <p class="font-bold text-lg text-gray-800">${request.group}</p>
@@ -560,88 +582,116 @@
             listEl.appendChild(requestEl);
         }
 
+        // --- LÓGICA DE SELECCIÓN MÚLTIPLE (NUEVA) ---
+
         function handleSlotSelection(slotEl, date, hour) {
-            const currentSelected = document.querySelector('.slot-selected');
-            if (currentSelected) {
-                currentSelected.classList.remove('slot-selected');
-            }
-
-            // Forzar la fecha a Objeto Date si viene de 'res.date'
-            const slotDate = new Date(date);
-            const dateISO = slotDate.toISOString().split('T')[0];
+            const slotId = formatReservationId(date, hour);
+            const dateISO = date.toISOString().split('T')[0];
             
-            slotEl.classList.add('slot-selected');
-            selectedDate = dateISO;
-            selectedHour = hour;
-
-            const slotReservation = reservations.find(r => r.id === formatReservationId(slotDate, hour) && r.status === 'pending' && r.group === currentGroup);
-            const dayStr = slotDate.toLocaleDateString('es-ES', { weekday: 'long', month: 'long', day: 'numeric' });
-
-            if (slotReservation) {
-                 // Si es mi solicitud pendiente
-                document.getElementById('selected-slot-display').innerHTML = `
-                    <span class="font-bold">Anular Solicitud:</span> Ya solicitaste el turno el ${dayStr} a las ${hour}.
-                `;
-                document.getElementById('request-button').disabled = false;
-                document.getElementById('request-button').textContent = 'Anular mi Solicitud';
-            } else {
-                 // Si es un slot libre
-                document.getElementById('selected-slot-display').innerHTML = `
-                    <span class="font-bold">Turno Seleccionado:</span> ${dayStr} a las ${hour}
-                `;
-                document.getElementById('request-button').disabled = false;
-                document.getElementById('request-button').textContent = 'Enviar Solicitud de Reserva';
+            // Verificar si el slot es 'Libre' (requisito para seleccionar)
+            if (!slotEl.classList.contains('slot-free')) {
+                return; // No hacer nada si está pendiente o aprobado
             }
+
+            const index = selectedSlots.findIndex(slot => slot.id === slotId);
+
+            if (index > -1) {
+                // Si ya está seleccionado, quitarlo
+                selectedSlots.splice(index, 1);
+                slotEl.classList.remove('slot-selected');
+            } else {
+                // Si no está seleccionado, agregarlo
+                selectedSlots.push({ id: slotId, date: dateISO, hour: hour });
+                slotEl.classList.add('slot-selected');
+            }
+            
+            updateSelectionBox();
         }
-        
-        window.submitRequest = async () => {
-            if (!selectedDate || !selectedHour) return;
 
-            const slotId = formatReservationId(new Date(selectedDate), selectedHour);
-            const slotEl = document.querySelector(`[data-slot-id="${slotId}"]`);
-            const slotReservation = reservations.find(r => r.id === slotId && r.representative === currentRepName);
-
-            if (slotReservation && slotReservation.status === 'pending') {
-                // Lógica para ANULAR (cambiar a rechazado/libre)
-                if (!window.confirm("¿Estás seguro de que quieres anular tu solicitud de turno?")) { return; }
-                const docRef = doc(db, COLLECTION_PATH, slotId);
+        // Función para anular una solicitud PENDIENTE (clic directo)
+        async function anularSlot(slotId) {
+             if (userRole !== 'student') return;
+             
+             if (!window.confirm("¿Estás seguro de que quieres anular tu solicitud de turno pendiente?")) { return; }
+             
+             const docRef = doc(db, COLLECTION_PATH, slotId);
+             try {
                 // Marcamos como 'rejected' para que se vuelva a renderizar como 'Libre'
                 await setDoc(docRef, { status: 'rejected', group: null, representative: null }, { merge: true }); 
                 showMessage("Solicitud anulada con éxito.", 'success');
+             } catch (e) {
+                console.error("Error al anular:", e);
+                showMessage("Error al anular la solicitud.", 'error');
+             }
+        }
+        
+        // Actualiza el cuadro de resumen de la selección múltiple
+        function updateSelectionBox() {
+            const display = document.getElementById('selected-slot-display');
+            const button = document.getElementById('request-button');
+            
+            if (selectedSlots.length === 0) {
+                display.textContent = 'Selecciona uno o más horarios libres en el calendario para solicitar un turno.';
+                button.disabled = true;
+                button.textContent = 'Enviar Solicitud (0 turnos)';
             } else {
-                // Lógica para ENVIAR una nueva solicitud
-                const existingReservation = reservations.find(r => r.id === slotId && (r.status === 'approved' || r.status === 'pending'));
-                if (existingReservation) {
-                    showMessage("Error: Este turno ya está reservado o en proceso de aprobación por otro grupo.", 'error');
-                    return;
-                }
-
-                const reservationData = {
-                    id: slotId,
-                    date: selectedDate,
-                    hour: selectedHour,
-                    group: currentGroup,
-                    representative: currentRepName, // Email del líder
-                    status: 'pending',
-                    timestamp: serverTimestamp(),
-                };
-
-                try {
-                    const docRef = doc(db, COLLECTION_PATH, slotId);
-                    await setDoc(docRef, reservationData);
-                    showMessage(`Solicitud enviada para el grupo ${currentGroup}. Esperando aprobación.`, 'success');
-                } catch (e) {
-                    console.error("Error al enviar la solicitud:", e);
-                    showMessage("Error al guardar la solicitud en la base de datos.", 'error');
-                }
+                display.innerHTML = `<span class="font-bold">Turnos Seleccionados (${selectedSlots.length}):</span><ul class="list-disc list-inside mt-2 text-sm">`;
+                selectedSlots.forEach(slot => {
+                    const dayStr = new Date(slot.date).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' });
+                    display.innerHTML += `<li>${dayStr} a las ${slot.hour}</li>`;
+                });
+                display.innerHTML += `</ul>`;
+                
+                button.disabled = false;
+                button.textContent = `Enviar Solicitud (${selectedSlots.length} turnos)`;
+            }
+        }
+        
+        // --- LÓGICA DE ENVÍO Y ACTUALIZACIÓN (MODIFICADA) ---
+        
+        window.submitRequest = async () => {
+            if (selectedSlots.length === 0) {
+                showMessage("No has seleccionado ningún turno.", 'error');
+                return;
             }
 
-            // Limpiar selección
-            selectedDate = null;
-            selectedHour = null;
-            if (slotEl) slotEl.classList.remove('slot-selected');
-            document.getElementById('request-button').disabled = true;
-            document.getElementById('selected-slot-display').textContent = 'Selecciona un horario libre en el calendario para solicitar un turno.';
+            if (!window.confirm(`¿Estás seguro de que quieres enviar ${selectedSlots.length} solicitudes de turno?`)) {
+                return;
+            }
+
+            // Usamos un 'batch' de Firestore para enviar todas las solicitudes juntas
+            const batch = writeBatch(db);
+
+            try {
+                for (const slot of selectedSlots) {
+                    const slotId = slot.id;
+                    const docRef = doc(db, COLLECTION_PATH, slotId);
+
+                    const reservationData = {
+                        id: slotId,
+                        date: slot.date,
+                        hour: slot.hour,
+                        group: currentGroup,
+                        representative: currentRepName, // Email del líder
+                        status: 'pending',
+                        timestamp: serverTimestamp(),
+                    };
+                    
+                    batch.set(docRef, reservationData); // Usamos set() para asegurar que sobrescriba
+                }
+                
+                // Enviamos el lote
+                await batch.commit();
+
+                showMessage(`¡${selectedSlots.length} solicitudes enviadas con éxito! Esperando aprobación.`, 'success');
+                
+            } catch (e) {
+                console.error("Error al enviar las solicitudes en lote:", e);
+                showMessage("Error al guardar las solicitudes en la base de datos.", 'error');
+            }
+
+            // Limpiar selección después de enviar
+            renderCalendar(); // Re-renderizar el calendario limpiará la selección
         };
         
         window.updateRequestStatus = async (slotId, newStatus) => {
@@ -672,14 +722,13 @@
             }
         };
 
+        // Ya no se usa, pero se mantiene la referencia por si se añade en el HTML
         window.changeWeek = (offset) => {
-            currentWeekOffset += offset;
-            renderCalendar();
+            // Lógica de cambio de semana deshabilitada
         };
 
-        // Función que se usaba en el login (ya no necesaria, pero se deja por si acaso)
         window.toggleLoginFields = () => {
-             // Ya no es necesario cambiar los campos, se usan los mismos para ambos roles.
+             // Ya no es necesario, los campos son los mismos
         };
 
     </script>
